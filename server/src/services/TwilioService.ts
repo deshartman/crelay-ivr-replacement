@@ -116,9 +116,20 @@ class TwilioService extends EventEmitter {
                 hints: "",  // List of hint words for the STT engine
                 interruptible: "any",
                 ttsProvider: "Elevenlabs",
-                voice: "Charlie-flash_v2_5",
+                voice: "ZF6FPAbjXT4488VcRRnw",
                 dtmfDetection: true, // DTMF & Speech interruptible
             } as any);
+
+            conversationRelay.language({
+                code: 'en-GB',
+                ttsProvider: 'ElevenLabs',
+                voice: 'ZF6FPAbjXT4488VcRRnw',
+            });
+            conversationRelay.language({
+                code: 'en-US',
+                ttsProvider: 'ElevenLabs',
+                voice: '1y13AZVBVdi3UwMhDhaI'
+            });
 
             conversationRelay.parameter(
                 {

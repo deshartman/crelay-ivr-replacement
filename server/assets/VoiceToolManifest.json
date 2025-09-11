@@ -76,6 +76,27 @@
                 ]
             },
             "strict": false
+        },
+        {
+            "type": "function",
+            "name": "switch-language",
+            "description": "Switches the TTS and/or transcription language for the conversation. At least one of ttsLanguage or transcriptionLanguage must be provided.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "ttsLanguage": {
+                        "type": "string",
+                        "description": "Language code for text-to-speech conversion (e.g., 'en-GB', 'en-US')"
+                    },
+                    "transcriptionLanguage": {
+                        "type": "string",
+                        "description": "Language code for speech-to-text transcription (e.g., 'en-GB', 'en-US')"
+                    }
+                },
+                "required": [],
+                "additionalProperties": false
+            },
+            "strict": false
         }
     ]
 }
