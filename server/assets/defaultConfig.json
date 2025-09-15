@@ -2,15 +2,9 @@
     "ConversationRelay": {
         "welcomeGreeting": "Hi! How can I help you today?",
         "welcomeGreetingInterruptible": "",
-        "language": "",
-        "ttsLanguage": "",
-        "transcriptionProvider": "Deepgram",
-        "transcriptionLanguage": "",
-        "speechModel": "nova-3-general",
+        "language": "en-AU",
         "hints": "",
         "interruptible": "any",
-        "ttsProvider": "Elevenlabs",
-        "voice": "ZF6FPAbjXT4488VcRRnw",
         "dtmfDetection": true,
         "reportInputDuringAgentSpeech": "",
         "preemptible": "",
@@ -20,14 +14,18 @@
     },
     "Languages": [
         {
-            "code": "en-GB",
+            "code": "en-AU",
             "ttsProvider": "ElevenLabs",
-            "voice": "ZF6FPAbjXT4488VcRRnw"
+            "voice": "IKne3meq5aSn9XLyUdCD",
+            "transcriptionProvider": "Deepgram",
+            "speechModel": "nova-3-general"
         },
         {
             "code": "en-US",
             "ttsProvider": "ElevenLabs",
-            "voice": "1y13AZVBVdi3UwMhDhaI"
+            "voice": "tnSpp4vdxKPjI9w0GnoV",
+            "transcriptionProvider": "Deepgram",
+            "speechModel": "nova-3-general"
         }
     ],
     "UsedConfig": {
