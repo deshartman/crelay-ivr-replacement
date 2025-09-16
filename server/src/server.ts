@@ -159,10 +159,6 @@ app.ws('/conversation-relay', (ws: any, req: express.Request) => {
                     callSid: (callSid: string, responseMessage: any) => {
                         logOut('WS', `Got a call SID event for the conversation relay: ${JSON.stringify(responseMessage)}`);
                         // Handle the message as needed
-                    },
-                    silence: (silenceMessage: OutgoingMessage) => {
-                        // logOut('WS', `Sending silence message out: ${JSON.stringify(silenceMessage)}`);
-                        ws.send(JSON.stringify(silenceMessage));
                     }
                 });
 

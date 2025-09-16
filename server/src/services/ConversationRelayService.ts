@@ -263,7 +263,7 @@ class ConversationRelayService implements ConversationRelay {
                 }
                 // Convert SilenceHandlerMessage to OutgoingMessage and use handler
                 const outgoingMessage: OutgoingMessage = silenceMessage as OutgoingMessage;
-                this.conversationRelayHandler.silence(outgoingMessage);
+                this.conversationRelayHandler.outgoingMessage(outgoingMessage);
             });
         }
 

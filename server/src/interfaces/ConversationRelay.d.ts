@@ -27,7 +27,6 @@ export interface ConversationRelayConfig {
 export interface ConversationRelayHandler {
     outgoingMessage(message: OutgoingMessage): void;
     callSid(callSid: string, responseMessage: any): void;
-    silence(message: OutgoingMessage): void;
 }
 
 /**
