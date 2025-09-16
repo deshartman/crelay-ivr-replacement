@@ -19,18 +19,12 @@
             "voice": "IKne3meq5aSn9XLyUdCD",
             "transcriptionProvider": "Deepgram",
             "speechModel": "nova-3-general"
-        },
-        {
-            "code": "en-US",
-            "ttsProvider": "ElevenLabs",
-            "voice": "tnSpp4vdxKPjI9w0GnoV",
-            "transcriptionProvider": "Deepgram",
-            "speechModel": "nova-3-general"
         }
     ],
     "UsedConfig": {
         "configuration": "defaultConfig",
-        "context": "defaultContext",
-        "manifest": "defaultToolManifest"
+        "context": "ivrWalkContext",
+        "manifest": "ivrWalkToolManifest",
+        "silenceDetection": "false"
     }
 }

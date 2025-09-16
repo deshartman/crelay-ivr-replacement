@@ -84,7 +84,7 @@ class TwilioService extends EventEmitter {
                 to: toNumber,
                 from: this.fromNumber,
                 twiml: conversationRelay.toString(),
-                // record: true,
+                record: true,
             });
 
             logOut('TwilioService', `Made a call from: ${this.fromNumber} to: ${toNumber}`);
