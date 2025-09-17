@@ -1,6 +1,6 @@
 {
     "ConversationRelay": {
-        "welcomeGreeting": "Hi! How can I help you today?",
+        "welcomeGreeting": "",
         "welcomeGreetingInterruptible": "",
         "language": "en-AU",
         "hints": "",

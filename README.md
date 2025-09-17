@@ -477,6 +477,77 @@ curl -X POST 'https://your-server/updateResponseService' \
 - **Scalable Storage**: No local file dependencies or management overhead
 - **Automatic Setup**: Default configurations loaded automatically from local files
 
+## Asset Upload Utility
+
+The system includes a convenient utility script for manually uploading asset files to Twilio Sync. This utility accepts any file path and provides a simple way to upload individual context documents and tool manifests without using the server's API endpoints.
+
+### Usage
+
+```bash
+# From the server directory
+node scripts/upload-assets.js <filepath>
+```
+
+### Supported File Types
+
+- **`.md` files** → Uploaded to Context map (with content wrapper)
+- **`.json` files** → Uploaded to ToolManifest map
+
+### Examples
+
+```bash
+# Upload files using relative paths
+node scripts/upload-assets.js ./assets/customerServiceContext.md
+node scripts/upload-assets.js ./assets/customTools.json
+
+# Upload files from current directory
+node scripts/upload-assets.js myContext.md
+node scripts/upload-assets.js myManifest.json
+
+# Upload files using absolute paths
+node scripts/upload-assets.js /path/to/specialContext.md
+```
+
+### How It Works
+
+1. **File Path Resolution**: Accepts any file path (relative or absolute) and resolves it correctly
+2. **File Validation**: Checks that the file exists at the specified path and has a supported extension
+3. **JSON Parsing**: For `.json` files, validates JSON syntax before upload
+4. **Automatic Naming**: Uses filename (without extension) as the Sync map key
+5. **Update or Create**: Updates existing Sync map items or creates new ones
+6. **Detailed Logging**: Provides clear feedback on upload success/failure
+
+### Asset Naming Convention
+
+The utility automatically derives the Sync map key from the filename:
+
+- `customerServiceContext.md` → Context map key: `customerServiceContext`
+- `customTools.json` → ToolManifest map key: `customTools`
+- `specializedContext.md` → Context map key: `specializedContext`
+
+### Prerequisites
+
+- Twilio credentials must be configured in your `.env` file (`ACCOUNT_SID` and `AUTH_TOKEN`)
+- Server must be built (`npm run build`) to generate compiled JavaScript files
+- Asset files must exist at the specified file path
+
+### Error Handling
+
+The utility provides clear error messages for common issues:
+
+- **Missing file**: `Error: File not found: /path/to/file`
+- **Invalid extension**: `Error: Only .md and .json files are supported`
+- **Invalid JSON**: `Error: Invalid JSON in filename.json`
+- **Missing credentials**: `Error: Missing Twilio credentials`
+
+This utility is perfect for:
+- **Development workflow**: Quick asset synchronization during development
+- **Configuration updates**: Push changes to existing custom assets
+- **Custom deployments**: Upload your specialized contexts and manifests
+- **Testing scenarios**: Easily upload different configurations for testing
+
+**Note**: Default assets (`defaultContext.md`, `defaultToolManifest.json`) are automatically uploaded on server startup, so manual upload is only needed for custom assets.
+
 ## Silence Detection Configuration
 
 Version 4.4.3 introduces a comprehensive silence detection configuration system that eliminates hardcoded values and provides maximum flexibility for customizing silence handling behavior.
