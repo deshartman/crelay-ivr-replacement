@@ -72,7 +72,8 @@ import { SilenceHandler } from './SilenceHandler.js';
 import { logOut, logError } from '../utils/logger.js';
 import { ContentResponse, ResponseService, ToolResultEvent } from '../interfaces/ResponseService.js';
 import { OpenAIResponseService } from './OpenAIResponseService.js';
-import { ContextCacheService, SilenceDetectionConfig } from './ContextCacheService.js';
+import { CachedAssetsService } from './CachedAssetsService.js';
+import type { SilenceDetectionConfig } from './SilenceHandler.js';
 import { ConversationRelayHandler } from '../interfaces/ConversationRelay.js';
 import { ResponseHandler } from '../interfaces/ResponseService.js';
 import type { SessionData, IncomingMessage, OutgoingMessage, ConversationRelay } from '../interfaces/ConversationRelay.js';
@@ -209,19 +210,19 @@ class ConversationRelayService implements ConversationRelay {
      * Handles async OpenAI service creation internally.
      *
      * @param {SessionData} sessionData - Session data for the conversation
-     * @param {ContextCacheService} contextCacheService - Cache service for context and manifest access
+     * @param {CachedAssetsService} cachedAssetsService - Cache service for context and manifest access
      * @param {string} [callSid] - Optional call SID for event handling
      * @returns {Promise<ConversationRelayService>} Initialized service instance
      */
     static async create(
         sessionData: SessionData,
-        contextCacheService: ContextCacheService,
+        cachedAssetsService: CachedAssetsService,
         callSid?: string
     ): Promise<ConversationRelayService> {
         logOut('Conversation Relay', 'Creating OpenAI Response Service');
         try {
-            const usedAssets = contextCacheService.getUsedAssets();
-            const responseService = await OpenAIResponseService.create(contextCacheService);
+            const usedAssets = cachedAssetsService.getUsedAssets();
+            const responseService = await OpenAIResponseService.create(cachedAssetsService);
             const instance = new ConversationRelayService(responseService, sessionData, usedAssets.silenceDetection);
 
             // Create and set up the response handler

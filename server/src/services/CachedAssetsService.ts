@@ -1,5 +1,5 @@
 /**
- * ContextCacheService - High-performance in-memory cache for contexts and manifests
+ * CachedAssetsService - High-performance in-memory cache for contexts and manifests
  *
  * This service provides fast access to conversation contexts and tool manifests
  * without runtime Sync API calls. It's designed to:
@@ -27,12 +27,7 @@
 
 import { logOut, logError } from '../utils/logger.js';
 import { TwilioSyncService } from './TwilioSyncService.js';
-
-interface SilenceDetectionConfig {
-    enabled: boolean;
-    secondsThreshold: number;
-    messages: string[];
-}
+import type { SilenceDetectionConfig } from './SilenceHandler.js';
 
 interface CachedAssets {
     contexts: Map<string, string>;
@@ -45,7 +40,7 @@ interface CachedAssets {
     };
 }
 
-class ContextCacheService {
+class CachedAssetsService {
     private cache: CachedAssets | null = null;
     private isInitialized: boolean = false;
 
@@ -57,7 +52,7 @@ class ContextCacheService {
      */
     async initialize(): Promise<void> {
         try {
-            logOut('ContextCacheService', 'Initializing cache from Sync...');
+            logOut('CachedAssetsService', 'Initializing cache from Sync...');
 
             // Load used config to determine defaults
             const usedConfig = await this.syncService.getDocument('ConversationRelay', 'UsedConfig') || {
@@ -95,10 +90,10 @@ class ContextCacheService {
             };
 
             this.isInitialized = true;
-            logOut('ContextCacheService', `Cache initialized: ${contexts.size} contexts, ${manifests.size} manifests`);
+            logOut('CachedAssetsService', `Cache initialized: ${contexts.size} contexts, ${manifests.size} manifests`);
 
         } catch (error) {
-            logError('ContextCacheService', `Failed to initialize cache: ${error instanceof Error ? error.message : String(error)}`);
+            logError('CachedAssetsService', `Failed to initialize cache: ${error instanceof Error ? error.message : String(error)}`);
             throw error;
         }
     }
@@ -162,7 +157,7 @@ class ContextCacheService {
 
         const context = this.getContext(contextKey);
         if (!context) {
-            logError('ContextCacheService', `Context '${contextKey}' not found in cache`);
+            logError('CachedAssetsService', `Context '${contextKey}' not found in cache`);
             return null;
         }
 
@@ -196,7 +191,7 @@ class ContextCacheService {
      * Useful for updating cache when Sync data changes
      */
     async refresh(): Promise<void> {
-        logOut('ContextCacheService', 'Refreshing cache...');
+        logOut('CachedAssetsService', 'Refreshing cache...');
         this.isInitialized = false;
         await this.initialize();
     }
@@ -218,9 +213,9 @@ class ContextCacheService {
 
     private ensureInitialized(): void {
         if (!this.isInitialized || !this.cache) {
-            throw new Error('ContextCacheService not initialized. Call initialize() first.');
+            throw new Error('CachedAssetsService not initialized. Call initialize() first.');
         }
     }
 }
 
-export { ContextCacheService, SilenceDetectionConfig };
+export { CachedAssetsService };

@@ -18,7 +18,7 @@
   }
   ```
 - **Eliminated Hardcoded Values**: Removed hardcoded fallbacks (`SILENCE_SECONDS_THRESHOLD`, `SILENCE_RETRY_THRESHOLD`) from SilenceHandler in favor of centralized JSON configuration
-- **Enhanced ContextCacheService**: Extended to support new silence detection configuration structure with proper TypeScript interfaces
+- **Enhanced CachedAssetsService**: Extended to support new silence detection configuration structure with proper TypeScript interfaces
 
 #### Flexible Message Array System
 - **Array-Based Message Progression**: Replaced hardcoded retry threshold logic with elegant message array iteration
@@ -33,9 +33,9 @@
 - **Type-Safe Configuration**: Complete TypeScript support with proper interfaces and type checking
 
 #### Service Integration Enhancements
-- **Enhanced getUsedAssets()**: ContextCacheService now returns silence detection configuration alongside context and manifest
+- **Enhanced getUsedAssets()**: CachedAssetsService now returns silence detection configuration alongside context and manifest
 - **Factory Method Updates**: ConversationRelayService.create() passes full configuration object to SilenceHandler constructor
-- **Clean Separation**: Clear distinction between configuration loading (ContextCacheService) and service creation (ConversationRelayService)
+- **Clean Separation**: Clear distinction between configuration loading (CachedAssetsService) and service creation (ConversationRelayService)
 - **Default Configuration**: Fallback configuration provided when not specified in JSON
 
 ### Benefits of Enhanced Silence Detection
@@ -71,7 +71,7 @@ This release provides a comprehensive silence detection configuration system tha
 ### Performance Optimization Architecture
 
 #### High-Performance Caching Implementation
-- **ContextCacheService**: Implemented in-memory caching system to eliminate runtime Sync API calls
+- **CachedAssetsService**: Implemented in-memory caching system to eliminate runtime Sync API calls
   - Uses Map-based storage for instant context and manifest retrieval
   - Provides deep copies to ensure session independence
   - Implements `getUsedAssets()`, `getContext()`, `getManifest()`, and `getAssetsForContextSwitch()` methods
@@ -79,12 +79,12 @@ This release provides a comprehensive silence detection configuration system tha
   - Eliminates per-session Sync API overhead
   - Maintains cloud storage benefits while providing local performance
 - **Service Architecture Optimization**: Reduced service creation overhead with direct cache access
-  - OpenAIResponseService now receives ContextCacheService directly
-  - ConversationRelayService simplified to pass ContextCacheService reference only
+  - OpenAIResponseService now receives CachedAssetsService directly
+  - ConversationRelayService simplified to pass CachedAssetsService reference only
 
 #### Self-Contained Context Switching
 - **Enhanced change-context Tool**: Tool now performs context switching directly without service boundary crossing
-  - Receives OpenAI and ContextCacheService references via dependency injection
+  - Receives OpenAI and CachedAssetsService references via dependency injection
   - Performs context switching internally: `openaiService.updateContext()` and `openaiService.updateTools()`
   - Inserts handoff summary into conversation before switching contexts
 - **Service Reference Injection**: Added pattern for tools requiring direct service access
@@ -94,7 +94,7 @@ This release provides a comprehensive silence detection configuration system tha
 #### Code Cleanup and Interface Simplification
 - **Removed ContextLoader Interface**: Eliminated unused interface as part of architecture simplification
 - **Updated Service Dependencies**: Simplified service creation patterns with direct cache access
-- **Enhanced WebSocket Logic**: Streamlined server initialization with ContextCacheService integration
+- **Enhanced WebSocket Logic**: Streamlined server initialization with CachedAssetsService integration
 
 ### Performance Benefits
 

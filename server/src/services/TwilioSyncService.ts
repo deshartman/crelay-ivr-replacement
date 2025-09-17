@@ -23,10 +23,10 @@ interface SyncServiceMap {
  *
  * This service is designed for:
  * 1. Startup-only operations - pushing default assets to Sync
- * 2. Loading all contexts/manifests into ContextCacheService
+ * 2. Loading all contexts/manifests into CachedAssetsService
  * 3. One-time initialization and setup
  *
- * Runtime operations should use ContextCacheService for performance.
+ * Runtime operations should use CachedAssetsService for performance.
  */
 class TwilioSyncService {
     private twilioClient: twilio.Twilio;

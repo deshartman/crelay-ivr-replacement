@@ -57,7 +57,12 @@
  */
 
 import { logOut } from '../utils/logger.js';
-import type { SilenceDetectionConfig } from './ContextCacheService.js';
+
+interface SilenceDetectionConfig {
+    enabled: boolean;
+    secondsThreshold: number;
+    messages: string[];
+}
 
 /**
  * Interface for silence breaker text message
@@ -199,4 +204,4 @@ class SilenceHandler {
     }
 }
 
-export { SilenceHandler };
+export { SilenceHandler, SilenceDetectionConfig };

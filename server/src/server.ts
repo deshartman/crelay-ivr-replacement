@@ -14,7 +14,7 @@ import { logOut, logError } from './utils/logger.js';
 // Import the services
 import { ConversationRelayService } from './services/ConversationRelayService.js'
 import { TwilioService } from './services/TwilioService.js';
-import { ContextCacheService } from './services/ContextCacheService.js';
+import { CachedAssetsService } from './services/CachedAssetsService.js';
 import type { IncomingMessage, OutgoingMessage, SessionData } from './interfaces/ConversationRelay.js';
 
 
@@ -57,19 +57,19 @@ app.use(express.json());    // For JSON payloads
 let wsSessionsMap = new Map<string, WSSession>();
 let parameterDataMap = new Map<string, { requestData: any }>();
 const twilioService = new TwilioService();
-let contextCacheService: ContextCacheService | null = null;
+let cachedAssetsService: CachedAssetsService | null = null;
 
-// Initialize TwilioService and ContextCacheService
+// Initialize TwilioService and CachedAssetsService
 (async () => {
     try {
         await twilioService.initialize();
         logOut('Server', 'TwilioService initialized successfully');
 
-        // Initialize ContextCacheService with TwilioSyncService
+        // Initialize CachedAssetsService with TwilioSyncService
         const syncService = (twilioService as any).syncService; // Access internal sync service
-        contextCacheService = new ContextCacheService(syncService);
-        await contextCacheService.initialize();
-        logOut('Server', 'ContextCacheService initialized successfully');
+        cachedAssetsService = new CachedAssetsService(syncService);
+        await cachedAssetsService.initialize();
+        logOut('Server', 'CachedAssetsService initialized successfully');
     } catch (error) {
         logError('Server', `Failed to initialize services: ${error instanceof Error ? error.message : String(error)}`);
     }
@@ -131,9 +131,9 @@ app.ws('/conversation-relay', (ws: any, req: express.Request) => {
                     sessionData.parameterData = parameterDataMap.get(message.customParameters.callReference) || { requestData: {} };
                 }
 
-                // Ensure ContextCacheService is available
-                if (!contextCacheService) {
-                    throw new Error('ContextCacheService not initialized');
+                // Ensure CachedAssetsService is available
+                if (!cachedAssetsService) {
+                    throw new Error('CachedAssetsService not initialized');
                 }
 
                 // Log any custom parameters for debugging
@@ -142,11 +142,11 @@ app.ws('/conversation-relay', (ws: any, req: express.Request) => {
                     logOut('WS', `Note: Custom context/manifest selection will be available in future versions`);
                 }
 
-                logOut('WS', `Creating ConversationRelayService with ContextCacheService`);
+                logOut('WS', `Creating ConversationRelayService with CachedAssetsService`);
 
                 conversationRelaySession = await ConversationRelayService.create(
                     sessionData,
-                    contextCacheService,
+                    cachedAssetsService,
                     message.callSid
                 );
 
@@ -334,8 +334,8 @@ app.post('/updateResponseService', async (req: express.Request, res: express.Res
     logOut('Server', `Received request to update Response Service with data: ${JSON.stringify(requestData)}`);
 
     try {
-        if (!contextCacheService) {
-            res.status(500).json({ success: false, error: 'ContextCacheService not initialized' });
+        if (!cachedAssetsService) {
+            res.status(500).json({ success: false, error: 'CachedAssetsService not initialized' });
             return;
         }
 
@@ -352,30 +352,30 @@ app.post('/updateResponseService', async (req: express.Request, res: express.Res
             if (wsSession) {
                 const conversationRelaySession = wsSession.conversationRelaySession;
 
-                // Get content from ContextCacheService
+                // Get content from CachedAssetsService
                 let context: string;
                 let toolManifest: object;
 
                 if (contextKey) {
-                    const cachedContext = contextCacheService.getContext(contextKey);
+                    const cachedContext = cachedAssetsService.getContext(contextKey);
                     if (!cachedContext) {
                         res.status(400).json({ success: false, error: `Context not found for key: ${contextKey}` });
                         return;
                     }
                     context = cachedContext;
                 } else {
-                    context = contextCacheService.getUsedAssets().context;
+                    context = cachedAssetsService.getUsedAssets().context;
                 }
 
                 if (manifestKey) {
-                    const cachedManifest = contextCacheService.getManifest(manifestKey);
+                    const cachedManifest = cachedAssetsService.getManifest(manifestKey);
                     if (!cachedManifest) {
                         res.status(400).json({ success: false, error: `Tool manifest not found for key: ${manifestKey}` });
                         return;
                     }
                     toolManifest = cachedManifest;
                 } else {
-                    toolManifest = contextCacheService.getUsedAssets().manifest;
+                    toolManifest = cachedAssetsService.getUsedAssets().manifest;
                 }
 
                 // Update the context and manifest content for the sessionResponseService

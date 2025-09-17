@@ -462,7 +462,7 @@ curl -X POST 'https://your-server/updateResponseService' \
 **📋 How Configuration Works:**
 - **Default Files**: Basic `defaultContext.md` and `defaultToolManifest.json` included for initial setup only
 - **Sync Maps Storage**: All configurations stored in Twilio Sync Maps for cloud access
-- **In-Memory Caching**: ContextCacheService provides high-performance access after startup
+- **In-Memory Caching**: CachedAssetsService provides high-performance access after startup
 - **Direct Upload Required**: You must upload your own contexts/manifests to Sync for production use
 - **Per-Call Override**: Individual calls can specify custom `contextKey`/`manifestKey` via WebSocket parameters
 - **Runtime Updates**: Active calls can be updated using the `/updateResponseService` endpoint

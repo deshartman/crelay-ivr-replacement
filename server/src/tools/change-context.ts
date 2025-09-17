@@ -7,7 +7,7 @@ interface ChangeContextFunctionArguments {
     newContext: string;
     handoffSummary: string;
     _openaiService?: any; // OpenAIResponseService instance for context switching
-    _contextCacheService?: any; // ContextCacheService instance for context access
+    _contextCacheService?: any; // CachedAssetsService instance for context access
     [key: string]: any;
 }
 
