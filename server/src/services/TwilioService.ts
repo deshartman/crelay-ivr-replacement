@@ -83,7 +83,7 @@ class TwilioService extends EventEmitter {
             const call = await this.twilioClient.calls.create({
                 to: toNumber,
                 from: this.fromNumber,
-                twiml: conversationRelay.toString(),
+                twiml: conversationRelay,
                 record: true,
             });
 
