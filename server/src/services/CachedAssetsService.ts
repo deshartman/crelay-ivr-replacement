@@ -37,6 +37,9 @@ interface CachedAssets {
         manifest: string;
         configuration?: string;
         silenceDetection?: SilenceDetectionConfig;
+        listenMode?: {
+            enabled: boolean;
+        };
     };
 }
 
@@ -102,7 +105,7 @@ class CachedAssetsService {
      * Gets the currently used context and manifest based on UsedConfig
      * Returns fresh copies for each session
      */
-    getUsedAssets(): { context: string; manifest: object; silenceDetection: SilenceDetectionConfig } {
+    getUsedAssets(): { context: string; manifest: object; silenceDetection: SilenceDetectionConfig; listenMode: { enabled: boolean } } {
         this.ensureInitialized();
 
         const defaultContextKey = this.cache!.usedConfig.context;
@@ -118,11 +121,17 @@ class CachedAssetsService {
             messages: ["Still there?", "Just checking you are still there?"]
         };
 
+        // Default listen mode config if not provided
+        const defaultListenMode = {
+            enabled: false
+        };
+
         // Return deep copies to ensure session independence
         return {
             context: context,
             manifest: JSON.parse(JSON.stringify(manifest)),
-            silenceDetection: this.cache!.usedConfig.silenceDetection ?? defaultSilenceConfig
+            silenceDetection: this.cache!.usedConfig.silenceDetection ?? defaultSilenceConfig,
+            listenMode: this.cache!.usedConfig.listenMode ?? defaultListenMode
         };
     }
 

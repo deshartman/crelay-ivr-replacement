@@ -97,6 +97,7 @@ class OpenAIResponseService implements ResponseService {
     protected loadedTools: Record<string, ToolFunction>;
     protected inputMessages: ResponseInput;
     protected cachedAssetsService: CachedAssetsService;
+    protected listenMode: boolean;
 
     // Unified response handler
     private responseHandler!: ResponseHandler;
@@ -119,6 +120,7 @@ class OpenAIResponseService implements ResponseService {
         this.loadedTools = {};
         this.inputMessages = [];
         this.cachedAssetsService = cachedAssetsService;
+        this.listenMode = false;
     }
 
     /**
@@ -136,6 +138,9 @@ class OpenAIResponseService implements ResponseService {
         const usedAssets = cachedAssetsService.getUsedAssets();
         await service.updateContext(usedAssets.context);
         await service.updateTools(usedAssets.manifest);
+
+        // Initialize listenMode from configuration
+        service.listenMode = usedAssets.listenMode.enabled;
 
         return service;
     }
@@ -372,7 +377,9 @@ class OpenAIResponseService implements ResponseService {
             // Handle different event types from the Responses API
             switch (eventData.type) {
                 case 'response.output_text.delta':
-                    // Text content streaming
+                    // Text content streaming - suppress if listenMode is enabled
+                    if (this.listenMode) break;
+
                     const content = eventData.delta || '';
                     if (content) {
                         this.responseHandler.content({
@@ -451,6 +458,8 @@ class OpenAIResponseService implements ResponseService {
                     break;
 
                 case 'response.completed':
+                    // Suppress final content marker if listenMode is enabled
+                    if (this.listenMode) break;
 
                     // Only send final content marker if this is the end of the conversation
                     // (not if we're about to create a follow-up for tool results)

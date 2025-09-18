@@ -632,6 +632,124 @@ Silence detection is configured through the `UsedConfig.silenceDetection` object
 - **User Experience**: Customizable messaging tailored to specific use cases
 - **Type Safety**: Full TypeScript support with compile-time validation
 
+## Listen Mode Configuration
+
+Version 4.5.0 introduces Listen Mode, a powerful feature that enables automated operations by suppressing text responses while maintaining full tool execution capability. This is particularly useful for automated tasks, IVR navigation, and background data collection.
+
+### Configuration Structure
+
+Listen mode is configured through the `UsedConfig.listenMode` object in `defaultConfig.json`:
+
+```json
+{
+  "UsedConfig": {
+    "configuration": "defaultConfig",
+    "context": "defaultContext",
+    "manifest": "defaultToolManifest",
+    "listenMode": {
+      "enabled": true
+    }
+  }
+}
+```
+
+### Configuration Properties
+
+- **`enabled`** (boolean): Controls whether listen mode is active
+  - `true`: Text responses are suppressed, only tool execution occurs
+  - `false`: Normal text responses are generated (default behavior)
+
+### How Listen Mode Works
+
+1. **Silent Operation**: When enabled, the system processes audio transcription and executes tools but suppresses all text-to-speech responses
+2. **Tool Execution Preserved**: All tool functionality remains fully operational (DTMF sending, SMS, call control, etc.)
+3. **Audio Processing**: System continues to transcribe and process incoming audio normally
+4. **Early Break Processing**: Efficient implementation using early break patterns to skip text response generation
+
+### Dynamic Control
+
+Listen mode can be controlled dynamically during active conversations using the `set-listen-mode` tool:
+
+```json
+{
+  "type": "function",
+  "name": "set-listen-mode",
+  "description": "Enable/disable listen mode to control text response generation",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "enabled": {
+        "type": "boolean",
+        "description": "True for listen-only operation, false for normal responses"
+      }
+    },
+    "required": ["enabled"]
+  }
+}
+```
+
+### Usage Examples
+
+**Enable Listen Mode for Automated Operations:**
+```javascript
+// During a call, enable silent mode
+toolCall('set-listen-mode', { enabled: true });
+// System now operates silently, executing tools without speaking
+```
+
+**Disable Listen Mode for Interactive Conversation:**
+```javascript
+// Switch back to normal interactive mode
+toolCall('set-listen-mode', { enabled: false });
+// System resumes normal text responses
+```
+
+### Common Use Cases
+
+#### Automated IVR Navigation
+- **Silent Navigation**: Navigate phone tree systems without generating speech responses
+- **DTMF Control**: Send touch-tone signals while remaining silent
+- **Data Collection**: Document navigation paths and menu options
+- **Terminal Detection**: Automatically detect and handle end conditions
+
+#### Background Processing
+- **Automated Testing**: Run conversation flow tests without audio output
+- **Data Mining**: Collect information while operating silently
+- **System Monitoring**: Monitor call flows without user-facing responses
+
+#### Development and Testing
+- **Debug Mode**: Test tool execution without generating responses
+- **Performance Testing**: Measure tool execution performance without TTS overhead
+- **Integration Testing**: Validate tool functionality in isolated mode
+
+### Technical Implementation
+
+Listen mode integrates seamlessly with the existing architecture:
+
+- **CachedAssetsService**: Loads listen mode configuration from Sync Maps
+- **OpenAIResponseService**: Implements early break pattern to skip text processing
+- **Tool Integration**: All tools continue to function normally in listen mode
+- **Runtime Control**: Dynamic switching through standard tool calling patterns
+
+### Benefits
+
+#### Performance
+- **Reduced Processing**: Skip unnecessary text generation for automated tasks
+- **Lower Bandwidth**: No text transmission when operating silently
+- **Faster Execution**: Optimized processing flow for automated operations
+
+#### Flexibility
+- **Runtime Control**: Switch between silent and interactive modes during calls
+- **Configuration Driven**: Control behavior through simple boolean configuration
+- **Tool Preservation**: Maintain full tool functionality while suppressing responses
+
+#### Developer Experience
+- **Simple Configuration**: Single boolean parameter controls entire feature
+- **Standard Integration**: Uses existing tool calling patterns for control
+- **Type Safety**: Full TypeScript support with proper interface definitions
+
+This listen mode system provides a comprehensive solution for automated operations while maintaining the full power and flexibility of the conversation relay system.
+
 ## Fly.io Deployment
 
 To deploy the server to Fly.io:

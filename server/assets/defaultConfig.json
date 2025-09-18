@@ -32,6 +32,9 @@
                 "Still there?",
                 "Just checking you are still there?"
             ]
+        },
+        "listenMode": {
+            "enabled": true
         }
     }
 }

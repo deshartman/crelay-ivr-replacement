@@ -1,5 +1,68 @@
 # Changelog
 
+## Release v4.5.0
+
+### Listen Mode Implementation
+
+#### Automated Operation Configuration System
+- **Listen Mode Configuration**: Added configurable listen mode system for automated operations without text responses
+  ```json
+  "listenMode": {
+    "enabled": true
+  }
+  ```
+- **Silent Operation**: When enabled, OpenAI response text processing is suppressed while maintaining full tool execution capability
+- **Configuration-Driven Behavior**: Listen mode state controlled through `defaultConfig.json` UsedConfig section
+- **Dynamic Control**: Runtime switching capability through `set-listen-mode` tool for operational flexibility
+
+#### OpenAI Response Service Enhancement
+- **Early Break Pattern**: Implemented efficient early break logic in `processStream()` method for text suppression
+- **Listen Mode Property**: Added `this.listenMode` boolean property for direct state access
+- **Response Processing Control**: Text delta events bypassed when listen mode active: `if (this.listenMode) break;`
+- **Tool Execution Preservation**: All tool calling and function execution remains fully operational in listen mode
+
+#### CachedAssetsService Integration
+- **Configuration Loading**: Extended CachedAssetsService to include listenMode in UsedAssets interface
+- **Type Safety**: Added proper TypeScript interface support for listenMode configuration object
+- **Service Integration**: Listen mode configuration passed to OpenAIResponseService during initialization
+- **Asset Management**: Listen mode settings cached for high-performance access across service instances
+
+#### Dynamic Listen Mode Control Tool
+- **set-listen-mode Tool**: New tool for runtime control of listen mode state during active conversations
+  - Parameters: `enabled` (boolean) - True for listen-only operation, false for normal responses
+  - Response validation and error handling for boolean parameter enforcement
+  - Standard tool calling pattern without service injection dependencies
+- **Tool Manifest Integration**: Added set-listen-mode to ivrWalkToolManifest for automated IVR operations
+- **Runtime Flexibility**: Enables switching between automated and interactive modes during conversations
+
+#### Technical Architecture
+- **Service Layer Integration**: Listen mode configuration flows from CachedAssetsService through service constructors
+- **Performance Optimization**: Early break pattern prevents unnecessary text processing overhead
+- **State Management**: Boolean flag approach for simple and reliable state control
+- **Tool Integration**: Standard tool calling patterns maintained for consistency with existing architecture
+
+### Benefits of Listen Mode System
+
+#### Automated Operations
+- **Silent Navigation**: Enable automated phone tree navigation without speaking responses
+- **Background Processing**: Run automated tasks while preserving all tool execution capabilities
+- **Data Collection**: Document system interactions without user-facing responses
+- **Testing Scenarios**: Automated testing of conversation flows and tool execution
+
+#### Developer Experience
+- **Configuration Control**: Simple boolean configuration for enabling/disabling text responses
+- **Runtime Flexibility**: Dynamic switching between automated and interactive modes
+- **Tool Consistency**: Standard tool calling patterns without special service injection
+- **Type Safety**: Full TypeScript support with proper interface definitions
+
+#### Performance Benefits
+- **Reduced Processing**: Early break pattern eliminates unnecessary text response generation
+- **Lower Bandwidth**: No text transmission when operating in silent mode
+- **Optimized Resources**: Skip text-to-speech processing during automated operations
+- **Faster Execution**: Direct state checking without complex method calls
+
+This release provides a comprehensive listen mode system that enables automated operations while maintaining full tool execution capabilities, perfect for IVR navigation, automated testing, and background data collection scenarios.
+
 ## Release v4.4.4
 
 ### Configuration Loading Fixes
