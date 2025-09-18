@@ -16,4 +16,8 @@ mcp-server/build
 server/.dockerignore
 server/Dockerfile
 server/fly.toml
+
+# Add all the branch specific assets to ignore in merges here
 server/assets/GCashContext.md
+server/assets/IVRWalkContext.md
+server/assets/IVRWalkToolManifest.json
