@@ -16,3 +16,4 @@ mcp-server/build
 server/.dockerignore
 server/Dockerfile
 server/fly.toml
+server/assets/legs
