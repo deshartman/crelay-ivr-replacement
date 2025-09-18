@@ -216,12 +216,10 @@ class TwilioSyncService {
                     }
                 }
 
-                // Load UsedConfig section into UsedConfig document (only on first-time setup)
-                if (configObj.UsedConfig && loadDefaults) {
+                // Load UsedConfig section into UsedConfig document (always update from defaultConfig.json)
+                if (configObj.UsedConfig) {
                     await this.setDocument('ConversationRelay', 'UsedConfig', configObj.UsedConfig);
                     logOut('TwilioSyncService', 'Loaded UsedConfig section into UsedConfig document');
-                } else if (!loadDefaults) {
-                    logOut('TwilioSyncService', 'Preserving existing UsedConfig document (restart mode)');
                 }
             }
 
@@ -245,7 +243,7 @@ class TwilioSyncService {
                 }
 
                 // Load all converted context files from J2 templates
-                await this.loadAllContextFiles();
+                // await this.loadAllContextFiles();
 
                 if (defaultManifest) {
                     // Check if defaultToolManifest already exists to avoid overwriting

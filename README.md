@@ -2,21 +2,14 @@
 
 This is a reference implementation aimed at introducing the key concepts of Conversation Relay. The key here is to ensure it is a workable environment that can be used to understand the basic concepts of Conversation Relay. It is intentionally simple and only the minimum has been done to ensure the understanding is focussed on the core concepts.
 
-## Release v4.4.3
+## Release v4.4.4
 
-This release introduces **Enhanced Silence Detection Configuration System** with centralized JSON configuration, eliminating hardcoded values and providing maximum flexibility for customizing silence handling behavior.
+This release includes **Asset Upload Utility** and **Configuration Loading Fixes** for improved developer experience and reliable configuration management.
 
-**Key Configuration Improvements:**
-- **Centralized Configuration**: Complete silence detection configuration through JSON object
-- **Flexible Message Arrays**: Support for any number of escalation messages without code changes
-- **Eliminated Hardcoded Values**: No more environment variables or scattered constants
-- **Type-Safe Configuration**: Full TypeScript support with proper interfaces
-
-**Enhanced Silence Detection Features:**
-- **Configurable Thresholds**: Easy modification of silence detection timing
-- **Custom Messages**: Tailored silence reminder messages for different use cases
-- **Dynamic Message Count**: Add or remove escalation messages without recompiling
-- **A/B Testing Support**: Easy testing of different message strategies and timing
+**Key Improvements:**
+- **Asset Upload Utility**: Manual upload script for contexts and tool manifests with flexible path support
+- **Configuration Reload Fix**: defaultConfig.json changes now always apply on server restart
+- **Selective Asset Loading**: Only defaultContext.md loads automatically, other contexts require manual upload via script. See [Asset Upload Utility](#asset-upload-utility) section
 
 **✅ Backward Compatible**: Existing configurations automatically use sensible defaults.
 

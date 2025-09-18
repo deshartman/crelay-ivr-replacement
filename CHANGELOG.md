@@ -1,5 +1,31 @@
 # Changelog
 
+## Release v4.4.4
+
+### Configuration Loading Fixes
+
+#### Reliable Configuration Updates
+- **Always Reload defaultConfig.json**: Fixed issue where UsedConfig changes in `defaultConfig.json` were only applied on first-time setup, not on server restarts
+- **Consistent Configuration State**: Server now always applies local configuration file changes on every startup
+- **Predictable Behavior**: Configuration changes are immediately effective after server restart
+
+#### Selective Asset Loading
+- **Controlled Context Loading**: Disabled automatic loading of all `*Context.md` files from assets directory
+- **Only Default Assets**: Now only `defaultContext.md` loads automatically during server startup
+- **Manual Upload Required**: Other context files (like `ivrWalkContext.md`) must be uploaded manually using the Asset Upload Utility
+- **Cleaner Startup**: Prevents unintended contexts from being automatically loaded into Sync
+
+#### Technical Implementation
+- **Removed Auto-Discovery**: Commented out `loadAllContextFiles()` call in startup sequence
+- **Conditional Logic Fix**: Removed `loadDefaults` condition for UsedConfig loading
+- **Startup Optimization**: Faster startup with only essential default assets loaded
+
+#### Benefits
+- **Configuration Reliability**: Changes to `defaultConfig.json` are guaranteed to be applied
+- **Explicit Asset Management**: Developers have full control over which contexts are loaded
+- **Development Workflow**: Easier testing and configuration management during development
+- **Production Stability**: Prevents accidental loading of development/test contexts
+
 ## Release v4.4.3
 
 ### Enhanced Silence Detection Configuration System
