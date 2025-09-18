@@ -66,6 +66,40 @@
 
 This release provides a comprehensive silence detection configuration system that eliminates hardcoded values while providing maximum flexibility for customizing silence handling behavior through simple JSON configuration changes.
 
+### Asset Upload Utility
+
+#### New Developer Tool
+- **Manual Asset Upload Script**: Added `scripts/upload-assets.js` utility for manually uploading asset files to Twilio Sync
+- **Flexible Path Support**: Accepts any file path (relative, absolute, or current directory) using `path.resolve()` for maximum flexibility
+- **File Type Support**: Handles both `.md` files (uploaded to Context map) and `.json` files (uploaded to ToolManifest map)
+- **Update or Create Logic**: Automatically updates existing Sync map items or creates new ones using existing `TwilioSyncService` patterns
+
+#### Usage Examples
+```bash
+# Upload files using relative paths
+node scripts/upload-assets.js ./assets/customContext.md
+node scripts/upload-assets.js ./assets/customTools.json
+
+# Upload files from current directory
+node scripts/upload-assets.js myContext.md
+
+# Upload files using absolute paths
+node scripts/upload-assets.js /path/to/file.json
+```
+
+#### Technical Implementation
+- **Reuses Existing Infrastructure**: Leverages `TwilioSyncService` and existing Sync Maps architecture
+- **Environment Variable Consistency**: Uses same credentials (`ACCOUNT_SID`, `AUTH_TOKEN`) as existing services
+- **Comprehensive Error Handling**: Validates file existence, JSON syntax, and Twilio credentials
+- **Asset Naming Convention**: Derives Sync map keys from filename (without extension)
+- **Detailed Logging**: Provides clear feedback on upload success/failure with content statistics
+
+#### Benefits
+- **Development Workflow**: Quick asset synchronization during development
+- **Configuration Management**: Easy upload of custom contexts and tool manifests
+- **No API Dependencies**: Direct file-to-Sync upload without server endpoints
+- **Consistent with Server Patterns**: Follows same Twilio client initialization and error handling as main application
+
 ## Release v4.4.2
 
 ### Performance Optimization Architecture
