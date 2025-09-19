@@ -2,9 +2,9 @@
 
 This is a reference implementation aimed at introducing the key concepts of Conversation Relay. The key here is to ensure it is a workable environment that can be used to understand the basic concepts of Conversation Relay. It is intentionally simple and only the minimum has been done to ensure the understanding is focussed on the core concepts.
 
-## Release v4.4.4
+## Release v4.5.1
 
-This release includes **Asset Upload Utility** and **Configuration Loading Fixes** for improved developer experience and reliable configuration management.
+This release includes **Silence Mode Call Handling Improvements** for better coordination between listen mode and silence detection during call termination.
 
 **Key Improvements:**
 - **Asset Upload Utility**: Manual upload script for contexts and tool manifests with flexible path support

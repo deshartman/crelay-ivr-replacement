@@ -1,5 +1,26 @@
 # Changelog
 
+## Release v4.5.1
+
+### Silence Mode Call Handling Improvements
+
+#### Enhanced Listen Mode Call Termination
+- **Improved Terminal Messaging**: Enhanced call ending behavior in listen mode to ensure proper silence detection handling
+- **Better Call Flow**: Optimized the interaction between listen mode and silence detection for smoother call termination
+- **Silence Handler Integration**: Improved coordination between OpenAIResponseService listen mode and SilenceHandler for consistent behavior
+
+#### Technical Implementation
+- **OpenAIResponseService Enhancement**: Updated silence mode handling in `processStream()` method for better call ending coordination
+- **State Management**: Improved listen mode state coordination with silence detection mechanisms
+- **Call Termination Logic**: Enhanced terminal message processing to work seamlessly with silence detection
+
+#### Benefits
+- **Consistent Call Endings**: Reliable call termination behavior regardless of listen mode state
+- **Better User Experience**: Smoother interaction between automated operations and silence detection
+- **Improved Reliability**: More predictable behavior when transitioning between listen mode and normal operations
+
+This release refines the listen mode implementation to provide better coordination with silence detection and more reliable call termination behavior.
+
 ## Release v4.5.0
 
 ### Listen Mode Implementation
