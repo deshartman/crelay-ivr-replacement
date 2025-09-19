@@ -458,11 +458,9 @@ class OpenAIResponseService implements ResponseService {
                     break;
 
                 case 'response.completed':
-                    // Suppress final content marker if listenMode is enabled
-                    if (this.listenMode) break;
-
                     // Only send final content marker if this is the end of the conversation
                     // (not if we're about to create a follow-up for tool results)
+                    // Always send completion to ensure terminal messages are dispatched even in listen mode
                     if (!currentToolCall) {
                         this.responseHandler.content({
                             type: "text",
