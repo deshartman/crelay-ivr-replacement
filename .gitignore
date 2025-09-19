@@ -21,3 +21,4 @@ server/fly.toml
 server/assets/GCashContext.md
 server/assets/IVRWalkContext.md
 server/assets/IVRWalkToolManifest.json
+server/assets/legs
