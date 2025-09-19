@@ -111,8 +111,7 @@ export default async function (functionArguments: WriteLegsArguments): Promise<W
             logOut('WriteLegsTool', `Added new step at path ${functionArguments.menuPath}`);
         }
 
-        // Sort by timestamp to maintain chronological IVR navigation flow
-        existingData.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+        // Preserve natural navigation order - do not sort by timestamp
         console.log('🗂️ WriteLegsTool: Total steps after update:', existingData.length);
 
         // Write updated data back to file
