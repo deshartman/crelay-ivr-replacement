@@ -2,16 +2,24 @@
 
 This is a reference implementation aimed at introducing the key concepts of Conversation Relay. The key here is to ensure it is a workable environment that can be used to understand the basic concepts of Conversation Relay. It is intentionally simple and only the minimum has been done to ensure the understanding is focussed on the core concepts.
 
-## Release v4.5.1
+## Release v4.6.0 - Major Architecture Update
 
-This release includes **Silence Mode Call Handling Improvements** for better coordination between listen mode and silence detection during call termination.
+This release introduces a **complete redesign of the asset loading architecture**, enabling flexible configuration management through multiple data sources.
 
-**Key Improvements:**
-- **Asset Upload Utility**: Manual upload script for contexts and tool manifests with flexible path support
-- **Configuration Reload Fix**: defaultConfig.json changes now always apply on server restart
-- **Selective Asset Loading**: Only defaultContext.md loads automatically, other contexts require manual upload via script. See [Asset Upload Utility](#asset-upload-utility) section
+**🔧 New Asset Management System:**
+- **File-Based Loading**: Perfect for development - no Twilio Sync required
+- **Sync-Based Loading**: Ideal for production - centralized configuration with automatic infrastructure setup
+- **Automatic Sync Setup**: Creates all required Sync services/maps/documents automatically from defaultConfig.json
+- **Flexible Configuration**: Choose your approach via `assetLoaderType` setting
 
-**✅ Backward Compatible**: Existing configurations automatically use sensible defaults.
+**✅ Breaking Changes:** TwilioService constructor no longer requires dependencies - enables standalone tool usage (e.g., send-sms)
+
+**📦 Asset Loading Options:**
+- **`"file"`** - Load from local files (recommended for development)
+- **`"sync"`** - Load from Twilio Sync (recommended for production)
+- **`"j2"`** - Reserved for future implementation
+
+**✅ Backward Compatible**: Existing Sync deployments work automatically with `"assetLoaderType": "sync"`
 
 See the [CHANGELOG.md](./CHANGELOG.md) for detailed release history.
 
@@ -343,32 +351,76 @@ The system requires the following Twilio services to be enabled in your account:
 - **Sync** - For storing and retrieving configuration data (context documents and tool manifests)
 - **SMS** (optional) - For send-sms tool functionality
 
-## Configuration Management
+## Asset Loading System (v4.6.0)
 
-Version 4.4.0 uses **Twilio Sync Maps** for cloud-based configuration storage with **key-based dynamic loading**. Context documents and tool manifests are stored in Sync Maps and retrieved by key for each conversation session.
+The system now supports **flexible asset loading** with two distinct approaches to manage contexts, manifests, and configuration. Choose the approach that best fits your deployment scenario.
 
-### Automatic Default Setup
+### 🔧 Asset Loading Options
 
-**🚀 Getting Started:** The system automatically creates default configurations to get you up and running quickly:
+**Configure in `server/assets/defaultConfig.json`:**
+```json
+{
+  "UsedConfig": {
+    "assetLoaderType": "file"  // or "sync"
+  }
+}
+```
 
-1. **Automatic Sync Maps Creation**: On first startup, the server automatically creates required Sync Services and Maps
-2. **Default Configuration Loading**: The system loads `defaultContext` and `defaultToolManifest` from local files in `server/assets/`
-3. **Immediate Operation**: You can start making calls immediately using the default configuration
-4. **No Manual Setup Required**: The system handles all initial Sync Maps population automatically
+### 📁 Option 1: File-Based Loading (Recommended for Development)
 
-**Default Files Auto-Loaded:**
-- `server/assets/defaultContext.md` → Sync Maps key `defaultContext`
-- `server/assets/defaultToolManifest.json` → Sync Maps key `defaultToolManifest`
+**Perfect for**: Development, testing, simple deployments, getting started
 
-### How Configuration Works
+**Setup Steps:**
+1. Set `"assetLoaderType": "file"` in `defaultConfig.json`
+2. Place your asset files in `server/assets/`
+3. Start the server - no external dependencies required!
 
-The system uses a **hybrid architecture**:
+**Required Files:**
+- `server/assets/defaultConfig.json` - Main configuration
+- `server/assets/defaultContext.md` - Conversation context
+- `server/assets/defaultToolManifest.json` - Tool definitions
 
-1. **Storage**: Context and tool manifests are stored in Twilio Sync Maps
-2. **Retrieval**: Configuration is loaded dynamically using keys (e.g., `defaultContext`, `defaultToolManifest`)
-3. **Service Creation**: Loaded configuration is passed directly to services as parameters
-4. **Dynamic Switching**: Different keys can be specified per call for custom configurations
-5. **Auto-Population**: Default configurations are automatically loaded from local files on startup
+**Benefits:**
+- ✅ No Twilio Sync required
+- ✅ Perfect for development and testing
+- ✅ Simple deployment
+- ✅ Version control friendly
+- ✅ No external dependencies
+
+### ☁️ Option 2: Sync-Based Loading (Recommended for Production)
+
+**Perfect for**: Production deployments, centralized configuration, multiple servers
+
+**Setup Steps:**
+1. Set `"assetLoaderType": "sync"` in `defaultConfig.json`
+2. Configure Twilio credentials in `.env`
+3. Start the server - Sync infrastructure is created automatically!
+
+**Automatic Setup Process:**
+1. **Service Creation**: Creates ConversationRelay Sync service automatically
+2. **Map Creation**: Creates Contexts, Manifests, Configuration, Languages maps
+3. **Document Creation**: Creates UsedConfig document
+4. **Asset Population**: Loads initial data from `defaultConfig.json`
+
+**Benefits:**
+- ✅ Centralized configuration management
+- ✅ Real-time updates without server restart
+- ✅ Multi-server deployments
+- ✅ Automatic infrastructure creation
+- ✅ Cloud-based persistence
+
+### 🔄 How Asset Loading Works
+
+**File-Based Loading:**
+1. **Direct File Access**: Reads assets directly from `server/assets/` folder
+2. **In-Memory Caching**: Loads into CachedAssetsService for high performance
+3. **Session Independence**: Each conversation gets independent asset copies
+
+**Sync-Based Loading:**
+1. **Sync API Access**: Retrieves assets from Twilio Sync services/maps/documents
+2. **Automatic Infrastructure**: Creates missing Sync resources on startup
+3. **In-Memory Caching**: Caches in CachedAssetsService for performance
+4. **Dynamic Updates**: Changes in Sync are available immediately
 
 ### Configuration Keys
 

@@ -17,7 +17,6 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import twilio from 'twilio';
-import { TwilioSyncService } from '../dist/services/TwilioSyncService.js';
 import { logOut, logError } from '../dist/utils/logger.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -67,7 +66,7 @@ async function main() {
         }
 
         const twilioClient = twilio(accountSid, authToken);
-        const syncService = new TwilioSyncService(twilioClient);
+        const syncService = twilioClient.sync.v1.services('ConversationRelay');
 
         logOut('UploadAssets', `Starting upload of ${path.basename(filePath)}...`);
 
@@ -80,8 +79,19 @@ async function main() {
         if (fileExtension === '.md') {
             // Upload to Context map with content wrapper
             logOut('UploadAssets', `Uploading ${path.basename(filePath)} to Context map as '${assetName}'`);
-            await syncService.setMapItem('ConversationRelay', 'Context', assetName, {
-                content: fileContent
+            const syncMap = syncService.syncMaps('Context');
+            await syncMap.syncMapItems(assetName).update({
+                data: {
+                    content: fileContent
+                }
+            }).catch(async () => {
+                // If update fails, try create
+                await syncMap.syncMapItems.create({
+                    key: assetName,
+                    data: {
+                        content: fileContent
+                    }
+                });
             });
             logOut('UploadAssets', `✓ Successfully uploaded ${path.basename(filePath)} to Context map`);
             logOut('UploadAssets', `  Asset name: ${assetName}`);
@@ -99,7 +109,16 @@ async function main() {
             }
 
             logOut('UploadAssets', `Uploading ${path.basename(filePath)} to ToolManifest map as '${assetName}'`);
-            await syncService.setMapItem('ConversationRelay', 'ToolManifest', assetName, parsedContent);
+            const syncMap = syncService.syncMaps('ToolManifest');
+            await syncMap.syncMapItems(assetName).update({
+                data: parsedContent
+            }).catch(async () => {
+                // If update fails, try create
+                await syncMap.syncMapItems.create({
+                    key: assetName,
+                    data: parsedContent
+                });
+            });
             logOut('UploadAssets', `✓ Successfully uploaded ${path.basename(filePath)} to ToolManifest map`);
             logOut('UploadAssets', `  Asset name: ${assetName}`);
 

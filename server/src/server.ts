@@ -56,20 +56,21 @@ app.use(express.json());    // For JSON payloads
  */
 let wsSessionsMap = new Map<string, WSSession>();
 let parameterDataMap = new Map<string, { requestData: any }>();
-const twilioService = new TwilioService();
+let twilioService: TwilioService;
 let cachedAssetsService: CachedAssetsService | null = null;
 
-// Initialize TwilioService and CachedAssetsService
+// Initialize CachedAssetsService and TwilioService
 (async () => {
     try {
-        await twilioService.initialize();
-        logOut('Server', 'TwilioService initialized successfully');
-
-        // Initialize CachedAssetsService with TwilioSyncService
-        const syncService = (twilioService as any).syncService; // Access internal sync service
-        cachedAssetsService = new CachedAssetsService(syncService);
+        // Initialize CachedAssetsService first (self-contained, no dependencies)
+        cachedAssetsService = new CachedAssetsService();
         await cachedAssetsService.initialize();
         logOut('Server', 'CachedAssetsService initialized successfully');
+
+        // Initialize TwilioService (no dependencies)
+        twilioService = new TwilioService();
+        await twilioService.initialize();
+        logOut('Server', 'TwilioService initialized successfully');
     } catch (error) {
         logError('Server', `Failed to initialize services: ${error instanceof Error ? error.message : String(error)}`);
     }
@@ -269,6 +270,7 @@ app.post('/outboundCall', async (req: express.Request, res: express.Response) =>
         const response = await twilioService.makeOutboundCall(
             serverBaseUrl,
             requestData.properties.phoneNumber,
+            cachedAssetsService!,
             requestData.properties.callReference || ""
         );
 
@@ -294,7 +296,7 @@ app.post('/outboundCall', async (req: express.Request, res: express.Response) =>
 app.post('/connectConversationRelay', async (req: express.Request, res: express.Response) => {
     logOut('Server', `Received request to connect to Conversation Relay`);
 
-    const voiceResponse = await twilioService.connectConversationRelay(serverBaseUrl);
+    const voiceResponse = await twilioService.connectConversationRelay(serverBaseUrl, cachedAssetsService!);
     if (voiceResponse) {
         res.send(voiceResponse.toString());
     } else {

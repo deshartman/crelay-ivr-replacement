@@ -25,75 +25,67 @@
  *    - Maintains consistency with existing patterns
  */
 
+import { promises as fs } from 'fs';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
 import { logOut, logError } from '../utils/logger.js';
-import { TwilioSyncService } from './TwilioSyncService.js';
+import type { AssetLoader, UsedConfig, AssetLoaderConfig } from '../interfaces/AssetLoader.js';
 import type { SilenceDetectionConfig } from './SilenceHandler.js';
+import { SyncAssetLoader } from './SyncAssetLoader.js';
+import { FileAssetLoader } from './FileAssetLoader.js';
 
 interface CachedAssets {
     contexts: Map<string, string>;
     manifests: Map<string, object>;
-    usedConfig: {
-        context: string;
-        manifest: string;
-        configuration?: string;
-        silenceDetection?: SilenceDetectionConfig;
-        listenMode?: {
-            enabled: boolean;
-        };
-    };
+    usedConfig: UsedConfig;
+    conversationRelayConfig: Map<string, any>;
+    languages: Map<string, any>;
 }
 
 class CachedAssetsService {
     private cache: CachedAssets | null = null;
     private isInitialized: boolean = false;
 
-    constructor(private syncService: TwilioSyncService) {}
+    private assetLoader: AssetLoader | null = null;
+
+    constructor() {}
 
     /**
-     * Initializes the cache by loading all contexts and manifests from Sync
-     * Should be called once at server startup after Sync service is ready
+     * Initializes the cache by reading configuration and loading assets from the appropriate loader
+     * Should be called once at server startup
      */
     async initialize(): Promise<void> {
         try {
-            logOut('CachedAssetsService', 'Initializing cache from Sync...');
+            logOut('CachedAssetsService', 'Initializing cache...');
 
-            // Load used config to determine defaults
-            const usedConfig = await this.syncService.getDocument('ConversationRelay', 'UsedConfig') || {
-                context: 'defaultContext',
-                manifest: 'defaultToolManifest',
-                configuration: 'defaultConfiguration'
-            };
+            // Create asset loader based on configuration
+            this.assetLoader = await this.createAssetLoader();
 
-            // Load all contexts
-            const allContexts = await this.syncService.getMapItem('ConversationRelay', 'Context');
-            const contexts = new Map<string, string>();
-
-            if (allContexts && typeof allContexts === 'object') {
-                Object.entries(allContexts).forEach(([key, value]) => {
-                    contexts.set(key, typeof value === 'object' && value && 'content' in value
-                        ? (value as any).content
-                        : String(value || ''));
-                });
+            // Initialize asset loader if it has an initialize method (SyncAssetLoader)
+            if (this.assetLoader.initialize) {
+                await this.assetLoader.initialize();
+                logOut('CachedAssetsService', 'Asset loader initialized');
             }
 
-            // Load all manifests
-            const allManifests = await this.syncService.getMapItem('ConversationRelay', 'ToolManifest');
-            const manifests = new Map<string, object>();
-
-            if (allManifests && typeof allManifests === 'object') {
-                Object.entries(allManifests).forEach(([key, value]) => {
-                    manifests.set(key, value || {});
-                });
-            }
+            // Load used config, contexts, manifests, and configuration from asset loader
+            const [usedConfig, contexts, manifests, conversationRelayConfig, languages] = await Promise.all([
+                this.assetLoader.loadUsedConfig(),
+                this.assetLoader.loadContexts(),
+                this.assetLoader.loadManifests(),
+                this.assetLoader.loadConversationRelayConfig(),
+                this.assetLoader.loadLanguages()
+            ]);
 
             this.cache = {
                 contexts,
                 manifests,
-                usedConfig
+                usedConfig,
+                conversationRelayConfig,
+                languages
             };
 
             this.isInitialized = true;
-            logOut('CachedAssetsService', `Cache initialized: ${contexts.size} contexts, ${manifests.size} manifests`);
+            logOut('CachedAssetsService', `Cache initialized: ${contexts.size} contexts, ${manifests.size} manifests, ${conversationRelayConfig.size} config items, ${languages.size} languages`);
 
         } catch (error) {
             logError('CachedAssetsService', `Failed to initialize cache: ${error instanceof Error ? error.message : String(error)}`);
@@ -196,8 +188,62 @@ class CachedAssetsService {
     }
 
     /**
-     * Refreshes the cache from Sync
-     * Useful for updating cache when Sync data changes
+     * Gets ConversationRelay configuration by key
+     * @param key Optional specific configuration key
+     * @returns Configuration value(s)
+     */
+    getConversationRelayConfig(key?: string): any {
+        this.ensureInitialized();
+
+        if (key) {
+            return this.cache!.conversationRelayConfig.get(key) || null;
+        }
+
+        // Return all config as an object
+        const config: any = {};
+        this.cache!.conversationRelayConfig.forEach((value, configKey) => {
+            config[configKey] = value;
+        });
+        return config;
+    }
+
+    /**
+     * Gets language configuration by key
+     * @param key Optional specific language key
+     * @returns Language configuration(s)
+     */
+    getLanguages(key?: string): any {
+        this.ensureInitialized();
+
+        if (key) {
+            return this.cache!.languages.get(key) || null;
+        }
+
+        // Return all languages as an object
+        const languages: any = {};
+        this.cache!.languages.forEach((value, langKey) => {
+            languages[langKey] = value;
+        });
+        return languages;
+    }
+
+    /**
+     * Gets the used configuration
+     * @param key Optional specific used config key
+     * @returns Used configuration value(s)
+     */
+    getUsedConfig(key?: string): any {
+        this.ensureInitialized();
+
+        if (key) {
+            return (this.cache!.usedConfig as any)[key] || null;
+        }
+        return this.cache!.usedConfig;
+    }
+
+    /**
+     * Refreshes the cache from the asset loader
+     * Useful for updating cache when asset data changes
      */
     async refresh(): Promise<void> {
         logOut('CachedAssetsService', 'Refreshing cache...');
@@ -220,8 +266,58 @@ class CachedAssetsService {
         };
     }
 
+    /**
+     * Creates the appropriate asset loader based on configuration
+     */
+    private async createAssetLoader(): Promise<AssetLoader> {
+        try {
+            // Read configuration to determine asset loader type
+            const assetLoaderType = await this.readAssetLoaderConfig();
+
+            logOut('CachedAssetsService', `Creating ${assetLoaderType} asset loader`);
+
+            switch (assetLoaderType) {
+                case 'sync':
+                    return new SyncAssetLoader();
+                case 'file':
+                    return new FileAssetLoader();
+                case 'j2':
+                    throw new Error('J2 asset loader not yet implemented');
+                default:
+                    logError('CachedAssetsService', `Unknown asset loader type: ${assetLoaderType}, defaulting to sync`);
+                    return new SyncAssetLoader();
+            }
+        } catch (error) {
+            logError('CachedAssetsService', `Failed to create asset loader: ${error instanceof Error ? error.message : String(error)}`);
+            throw error;
+        }
+    }
+
+    /**
+     * Reads the asset loader configuration from defaultConfig.json
+     */
+    private async readAssetLoaderConfig(): Promise<AssetLoaderConfig> {
+        try {
+            // Get the assets path
+            const currentModuleFile = fileURLToPath(import.meta.url);
+            const serverSrcDir = dirname(dirname(currentModuleFile)); // Go up from services to src
+            const serverDir = dirname(serverSrcDir); // Go up from src to server
+            const configPath = join(serverDir, 'assets', 'defaultConfig.json');
+
+            // Read and parse config
+            const configContent = await fs.readFile(configPath, 'utf-8');
+            const config = JSON.parse(configContent);
+
+            // Extract assetLoaderType, default to 'sync' for backward compatibility
+            return config.UsedConfig?.assetLoaderType || 'sync';
+        } catch (error) {
+            logError('CachedAssetsService', `Failed to read asset loader config: ${error instanceof Error ? error.message : String(error)}, defaulting to sync`);
+            return 'sync';
+        }
+    }
+
     private ensureInitialized(): void {
-        if (!this.isInitialized || !this.cache) {
+        if (!this.isInitialized || !this.cache || !this.assetLoader) {
             throw new Error('CachedAssetsService not initialized. Call initialize() first.');
         }
     }

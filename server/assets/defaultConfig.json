@@ -1,6 +1,6 @@
 {
     "ConversationRelay": {
-        "welcomeGreeting": "",
+        "welcomeGreeting": "Hello there! How can I assist you today?",
         "welcomeGreetingInterruptible": "",
         "language": "en-AU",
         "hints": "",
@@ -23,10 +23,11 @@
     ],
     "UsedConfig": {
         "configuration": "defaultConfig",
-        "context": "ivrWalkContext",
-        "manifest": "ivrWalkToolManifest",
+        "context": "defaultContext",
+        "manifest": "defaultToolManifest",
+        "assetLoaderType": "file",
         "silenceDetection": {
-            "enabled": false,
+            "enabled": true,
             "secondsThreshold": 20,
             "messages": [
                 "Still there?",
@@ -34,7 +35,7 @@
             ]
         },
         "listenMode": {
-            "enabled": true
+            "enabled": false
         }
     }
 }

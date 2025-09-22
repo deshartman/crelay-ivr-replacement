@@ -1,5 +1,49 @@
 # Changelog
 
+## Release v4.6.0
+
+### Major Architecture Redesign: Asset Loading System
+
+This release introduces a complete redesign of the asset loading architecture, enabling flexible configuration management through multiple data sources and eliminating dependencies that prevented standalone tool usage.
+
+#### Breaking Changes
+- **Decoupled TwilioService**: Removed CachedAssetsService dependency from TwilioService constructor
+- **Parameter-Based Dependency Injection**: TwilioService methods now accept CachedAssetsService as parameters instead of constructor injection
+- **New Asset Management Interface**: All asset loading now goes through the AssetLoader interface abstraction
+
+#### Added
+- **AssetLoader Interface**: New abstraction layer for loading contexts, manifests, and configuration from different sources
+- **CachedAssetsService**: Centralized, high-performance in-memory cache for all assets with automatic loader selection
+- **FileAssetLoader**: Load assets directly from local files without requiring Twilio Sync
+- **SyncAssetLoader**: Enhanced Sync integration with automatic service/map/document creation
+- **Configuration Selection**: Choose between 'file', 'sync', or 'j2' loading via `assetLoaderType` in defaultConfig.json
+
+#### Enhanced
+- **Automatic Sync Infrastructure Creation**: SyncAssetLoader automatically creates missing Sync services, maps, and documents from defaultConfig.json
+- **Improved Service Independence**: Services can now be instantiated independently (enables tools like send-sms to work standalone)
+- **Performance Optimization**: In-memory caching eliminates runtime API calls for asset access
+- **Session Independence**: Each ConversationRelay session gets independent asset copies
+
+#### Technical Implementation
+- **SyncAssetLoader Enhancement**: Added comprehensive Sync initialization with helper methods from TwilioSyncService
+- **Asset Loading Strategy**: Dynamic selection between file-based and Sync-based loading
+- **Configuration Management**: Unified approach to contexts, manifests, and configuration across all loaders
+- **Service Architecture**: Clean separation between configuration loading and service creation
+
+#### Migration Guide
+- **File-based setup**: Set `"assetLoaderType": "file"` in defaultConfig.json - no Sync service required
+- **Sync-based setup**: Set `"assetLoaderType": "sync"` in defaultConfig.json - automatic Sync infrastructure creation
+- **TwilioService usage**: Methods now require CachedAssetsService parameter (e.g., `connectConversationRelay(serverBaseUrl, cachedAssetsService)`)
+
+#### Benefits
+- **Flexible Asset Management**: Choose between file-based or Sync-based configuration storage
+- **Standalone Tool Support**: Tools like send-sms can create TwilioService without dependencies
+- **Automatic Sync Setup**: No manual Sync infrastructure setup required
+- **Development Friendly**: File-based loading perfect for development and testing
+- **Production Ready**: Sync-based loading ideal for production deployments with centralized configuration
+
+This release provides maximum flexibility for different deployment scenarios while maintaining full backward compatibility and improving the overall architecture for better maintainability and performance.
+
 ## Release v4.5.1
 
 ### Silence Mode Call Handling Improvements

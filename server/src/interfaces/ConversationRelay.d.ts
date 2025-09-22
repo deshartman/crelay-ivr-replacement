@@ -1,3 +1,5 @@
+import type { CachedAssetsService } from '../services/CachedAssetsService.js';
+
 /**
  * Interface for ConversationRelay TwiML configuration
  */
@@ -218,8 +220,7 @@ export interface ConversationRelay {
 export declare class ConversationRelayService implements ConversationRelay {
     static create(
         sessionData: SessionData,
-        contextFile: string,
-        toolManifestFile: string,
+        cachedAssetsService: CachedAssetsService,
         callSid?: string
     ): Promise<ConversationRelayService>;
 
