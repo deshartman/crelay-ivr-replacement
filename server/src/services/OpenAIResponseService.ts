@@ -50,12 +50,8 @@
  * - errorHandler: Error events
  */
 
-import fs from 'fs';
-import path from 'path';
 import dotenv from 'dotenv';
 import OpenAI from 'openai';
-import { fileURLToPath } from 'url';
-import { dirname } from 'path';
 
 // Import proper OpenAI types 
 // Note: ResponseInput is not yet exported in main OpenAI namespace (see issue #1378)
@@ -64,7 +60,6 @@ import type { ResponseInput, ResponseStreamEvent } from 'openai/resources/respon
 
 import { logOut, logError } from '../utils/logger.js';
 import { ResponseService, ContentResponse, ToolResult, ToolResultEvent, ResponseHandler } from '../interfaces/ResponseService.js';
-import { CachedAssetsService } from './CachedAssetsService.js';
 
 dotenv.config();
 
@@ -96,54 +91,41 @@ class OpenAIResponseService implements ResponseService {
     protected toolDefinitions: any[];
     protected loadedTools: Record<string, ToolFunction>;
     protected inputMessages: ResponseInput;
-    protected cachedAssetsService: CachedAssetsService;
     protected listenMode: boolean;
 
     // Unified response handler
     private responseHandler!: ResponseHandler;
 
     /**
-     * Private constructor for ResponseService instance.
-     * Initializes client and sets up initial state with synchronous operations only.
-     * Use the static create() method for proper async initialization.
+     * Constructor for ResponseService instance.
+     * Initializes client and sets up initial state with pre-loaded assets.
      *
-     * @param {CachedAssetsService} cachedAssetsService - Cache service for context and manifest access
+     * @param {string} context - Pre-loaded context content
+     * @param {object} manifest - Pre-loaded tool manifest
+     * @param {Record<string, ToolFunction>} loadedTools - Pre-loaded tool functions
+     * @param {boolean} listenMode - Listen mode setting
      */
-    private constructor(cachedAssetsService: CachedAssetsService) {
+    constructor(
+        context: string,
+        manifest: object,
+        loadedTools: Record<string, ToolFunction>,
+        listenMode: boolean = false
+    ) {
         this.openai = new OpenAI();
         this.model = process.env.OPENAI_MODEL || "gpt-4o";
         this.currentResponseId = null;
-        this.instructions = '';
+        this.instructions = context;
         this.isInterrupted = false;
-        this.toolManifest = { tools: [] };
-        this.toolDefinitions = [];
-        this.loadedTools = {};
+
+        // Set up tools from pre-loaded data
+        this.toolManifest = manifest as { tools: any[] };
+        this.toolDefinitions = this.toolManifest.tools || [];
+        this.loadedTools = loadedTools;
+
         this.inputMessages = [];
-        this.cachedAssetsService = cachedAssetsService;
-        this.listenMode = false;
+        this.listenMode = listenMode;
     }
 
-    /**
-     * Creates a new ResponseService instance with proper async initialization.
-     * Gets context and manifest from CachedAssetsService using usedConfig keys.
-     *
-     * @param {CachedAssetsService} cachedAssetsService - Cache service for context and manifest access
-     * @returns {Promise<OpenAIResponseService>} Fully initialized service instance
-     * @throws {Error} If context cache service is not available or initialization fails
-     */
-    static async create(cachedAssetsService: CachedAssetsService): Promise<OpenAIResponseService> {
-        const service = new OpenAIResponseService(cachedAssetsService);
-
-        // Get context and manifest based on usedConfig
-        const usedAssets = cachedAssetsService.getUsedAssets();
-        await service.updateContext(usedAssets.context);
-        await service.updateTools(usedAssets.manifest);
-
-        // Initialize listenMode from configuration
-        service.listenMode = usedAssets.listenMode.enabled;
-
-        return service;
-    }
 
     /**
      * Creates and sets up the response handler for the service
@@ -166,12 +148,11 @@ class OpenAIResponseService implements ResponseService {
             const calledTool: ToolFunction = this.loadedTools[tool.name];
             const calledToolArgs = JSON.parse(tool.arguments);
 
-            // Special handling for change-context tool: Add service references to enable self-contained context switching
+            // Special handling for change-context tool: Add service reference to enable self-contained context switching
             // This approach keeps the tool interface clean for all other tools while allowing change-context
-            // to access the services it needs to update context and manifest directly within the tool execution
+            // to access the service it needs to update context directly within the tool execution
             if (tool.name === 'change-context') {
                 calledToolArgs._openaiService = this;
-                calledToolArgs._contextCacheService = this.cachedAssetsService;
             }
 
             // Call the tool with arguments
@@ -304,14 +285,12 @@ class OpenAIResponseService implements ResponseService {
 
     /**
      * Updates the tool manifest used by the service dynamically from content object.
-     * 
+     * Tools are already pre-loaded, so this just updates the manifest definitions.
+     *
      * @param {any} toolManifest - Tool manifest object
-     * @throws {Error} If tool manifest is invalid or tool loading fails
+     * @throws {Error} If tool manifest is invalid
      */
     async updateTools(toolManifest: any): Promise<void> {
-        const __filename = fileURLToPath(import.meta.url);
-        const __dirname = dirname(__filename);
-
         try {
             if (!toolManifest || typeof toolManifest !== 'object') {
                 throw new Error('Tool manifest must be a valid object');
@@ -321,27 +300,11 @@ class OpenAIResponseService implements ResponseService {
                 throw new Error('Tool manifest must have a tools array');
             }
 
-            // Update tool definitions and reload tools
+            // Update tool definitions (tools are already loaded)
             this.toolManifest = toolManifest;
             this.toolDefinitions = toolManifest.tools;
-            this.loadedTools = {};
 
-            logOut('OpenAIResponseService', `Reloading tools...`);
-            for (const tool of this.toolDefinitions) {
-                if (tool.type === 'function') {
-                    let functionName = tool.function?.name || tool.name;
-                    try {
-                        // Dynamic import for ES modules - use same path resolution as ChatCompletions version
-                        const toolsDir = path.join(__dirname, '..', 'tools');
-                        const toolModule = await import(path.join(toolsDir, `${functionName}.js`));
-                        this.loadedTools[functionName] = toolModule.default;
-                        logOut('OpenAIResponseService', `Loaded function: ${functionName}`);
-                    } catch (error) {
-                        logError('OpenAIResponseService', `Error loading tool ${functionName}: ${error instanceof Error ? error.message : String(error)}`);
-                    }
-                }
-            }
-            logOut('OpenAIResponseService', `Loaded ${Object.keys(this.loadedTools).length} tools`);
+            logOut('OpenAIResponseService', `Updated tool manifest with ${this.toolDefinitions.length} tool definitions`);
 
         } catch (error) {
             logError('OpenAIResponseService', `Error updating tools: ${error instanceof Error ? error.message : String(error)}`);

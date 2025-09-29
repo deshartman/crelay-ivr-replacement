@@ -13,6 +13,7 @@ import { logOut, logError } from './utils/logger.js';
 
 // Import the services
 import { ConversationRelayService } from './services/ConversationRelayService.js'
+import { OpenAIResponseService } from './services/OpenAIResponseService.js';
 import { TwilioService } from './services/TwilioService.js';
 import { CachedAssetsService } from './services/CachedAssetsService.js';
 import type { IncomingMessage, OutgoingMessage, SessionData } from './interfaces/ConversationRelay.js';
@@ -143,12 +144,24 @@ app.ws('/conversation-relay', (ws: any, req: express.Request) => {
                     logOut('WS', `Note: Custom context/manifest selection will be available in future versions`);
                 }
 
-                logOut('WS', `Creating ConversationRelayService with CachedAssetsService`);
+                logOut('WS', `Creating OpenAIResponseService and ConversationRelayService`);
 
-                conversationRelaySession = await ConversationRelayService.create(
+                // Get pre-loaded assets from CachedAssetsService
+                const usedAssets = cachedAssetsService.getUsedAssets();
+
+                // Create OpenAI ResponseService with pre-loaded assets
+                const responseService = new OpenAIResponseService(
+                    usedAssets.context,
+                    usedAssets.manifest,
+                    usedAssets.loadedTools,
+                    usedAssets.listenMode.enabled
+                );
+
+                // Create ConversationRelayService - it will handle ResponseService setup internally
+                conversationRelaySession = new ConversationRelayService(
+                    responseService,
                     sessionData,
-                    cachedAssetsService,
-                    message.callSid
+                    usedAssets.silenceDetection
                 );
 
                 // Set up unified conversation relay handler

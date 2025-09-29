@@ -71,8 +71,6 @@
 import { SilenceHandler } from './SilenceHandler.js';
 import { logOut, logError } from '../utils/logger.js';
 import { ContentResponse, ResponseService, ToolResultEvent } from '../interfaces/ResponseService.js';
-import { OpenAIResponseService } from './OpenAIResponseService.js';
-import { CachedAssetsService } from './CachedAssetsService.js';
 import type { SilenceDetectionConfig } from './SilenceHandler.js';
 import { ConversationRelayHandler } from '../interfaces/ConversationRelay.js';
 import { ResponseHandler } from '../interfaces/ResponseService.js';
@@ -90,20 +88,23 @@ class ConversationRelayService implements ConversationRelay {
     private conversationRelayHandler!: ConversationRelayHandler;
 
     /**
-     * Creates a new ConversationRelayService instance using the factory method.
-     * Use ConversationRelayService.create() instead of constructor directly.
+     * Creates a new ConversationRelayService instance.
      *
      * @param {ResponseService} responseService - LLM service for processing responses
      * @param {SessionData} sessionData - Session data for the conversation
      * @param {SilenceDetectionConfig} silenceDetectionConfig - Silence detection configuration
      * @throws {Error} If responseService is not provided
      */
-    private constructor(responseService: ResponseService, sessionData: SessionData, silenceDetectionConfig: SilenceDetectionConfig) {
+    constructor(responseService: ResponseService, sessionData: SessionData, silenceDetectionConfig: SilenceDetectionConfig) {
         this.responseService = responseService;
         this.sessionData = sessionData;
         this.silenceHandler = silenceDetectionConfig.enabled ? new SilenceHandler(silenceDetectionConfig) : null;
         this.logMessage = null;     // Utility log message
         this.accumulatedTokens = '';// Utility to show tokens as a Message in logging
+
+        // Set up ResponseService handler automatically
+        const responseHandler = this.createResponseHandler();
+        responseService.createResponseHandler(responseHandler);
 
         logOut(`Conversation Relay`, `Service constructed with silence detection: ${silenceDetectionConfig.enabled}`);
     }
@@ -205,36 +206,6 @@ class ConversationRelayService implements ConversationRelay {
         this.conversationRelayHandler = handler;
     }
 
-    /**
-     * Factory method to create a ConversationRelayService instance.
-     * Handles async OpenAI service creation internally.
-     *
-     * @param {SessionData} sessionData - Session data for the conversation
-     * @param {CachedAssetsService} cachedAssetsService - Cache service for context and manifest access
-     * @param {string} [callSid] - Optional call SID for event handling
-     * @returns {Promise<ConversationRelayService>} Initialized service instance
-     */
-    static async create(
-        sessionData: SessionData,
-        cachedAssetsService: CachedAssetsService,
-        callSid?: string
-    ): Promise<ConversationRelayService> {
-        logOut('Conversation Relay', 'Creating OpenAI Response Service');
-        try {
-            const usedAssets = cachedAssetsService.getUsedAssets();
-            const responseService = await OpenAIResponseService.create(cachedAssetsService);
-            const instance = new ConversationRelayService(responseService, sessionData, usedAssets.silenceDetection);
-
-            // Create and set up the response handler
-            const responseHandler = instance.createResponseHandler();
-            responseService.createResponseHandler(responseHandler);
-
-            return instance;
-        } catch (error) {
-            logError('Conversation Relay', `Could not create the Response Service: Error: ${error}`);
-            throw new Error('LLM service is required');
-        }
-    }
 
     /**
      * Initializes a new conversation relay session.

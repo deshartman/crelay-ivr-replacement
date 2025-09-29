@@ -31,8 +31,14 @@ import { fileURLToPath } from 'url';
 import { logOut, logError } from '../utils/logger.js';
 import type { AssetLoader, ServerConfig, AssetLoaderConfig } from '../interfaces/AssetLoader.js';
 import type { SilenceDetectionConfig } from './SilenceHandler.js';
+import type { ToolResult } from '../interfaces/ResponseService.js';
 import { SyncAssetLoader } from './SyncAssetLoader.js';
 import { FileAssetLoader } from './FileAssetLoader.js';
+
+/**
+ * Type for loaded tool function
+ */
+type ToolFunction = (args: any) => Promise<ToolResult> | ToolResult;
 
 interface CachedAssets {
     contexts: Map<string, string>;
@@ -40,6 +46,7 @@ interface CachedAssets {
     serverConfig: ServerConfig;
     conversationRelayConfig: any;
     languages: Map<string, any>;
+    loadedTools: Record<string, ToolFunction>;
 }
 
 class CachedAssetsService {
@@ -76,16 +83,20 @@ class CachedAssetsService {
                 this.assetLoader.loadLanguages()
             ]);
 
+            // Load tools from manifests
+            const loadedTools = await this.loadTools(manifests);
+
             this.cache = {
                 contexts,
                 manifests,
                 serverConfig,
                 conversationRelayConfig,
-                languages
+                languages,
+                loadedTools
             };
 
             this.isInitialized = true;
-            logOut('CachedAssetsService', `Cache initialized: ${contexts.size} contexts, ${manifests.size} manifests, 1 config loaded, ${languages.size} languages`);
+            logOut('CachedAssetsService', `Cache initialized: ${contexts.size} contexts, ${manifests.size} manifests, 1 config loaded, ${languages.size} languages, ${Object.keys(loadedTools).length} tools`);
 
         } catch (error) {
             logError('CachedAssetsService', `Failed to initialize cache: ${error instanceof Error ? error.message : String(error)}`);
@@ -97,7 +108,7 @@ class CachedAssetsService {
      * Gets the currently used context and manifest based on UsedConfig
      * Returns fresh copies for each session
      */
-    getUsedAssets(): { context: string; manifest: object; silenceDetection: SilenceDetectionConfig; listenMode: { enabled: boolean } } {
+    getUsedAssets(): { context: string; manifest: object; silenceDetection: SilenceDetectionConfig; listenMode: { enabled: boolean }; loadedTools: Record<string, ToolFunction> } {
         this.ensureInitialized();
 
         const defaultContextKey = this.cache!.serverConfig.AssetLoader.context;
@@ -123,7 +134,8 @@ class CachedAssetsService {
             context: context || '',
             manifest: JSON.parse(JSON.stringify(manifest || {})),
             silenceDetection: this.cache!.serverConfig.ConversationRelay.SilenceDetection ?? defaultSilenceConfig,
-            listenMode: this.cache!.serverConfig.Server.ListenMode ?? defaultListenMode
+            listenMode: this.cache!.serverConfig.Server.ListenMode ?? defaultListenMode,
+            loadedTools: this.cache!.loadedTools // Tools are functions, can be shared
         };
     }
 
@@ -241,18 +253,77 @@ class CachedAssetsService {
     }
 
     /**
+     * Gets the pre-loaded tools
+     * @returns Record of tool name to tool function
+     */
+    getLoadedTools(): Record<string, ToolFunction> {
+        this.ensureInitialized();
+        return this.cache!.loadedTools;
+    }
+
+    /**
      * Gets cache statistics for monitoring
      */
-    getCacheStats(): { contexts: number; manifests: number; initialized: boolean } {
+    getCacheStats(): { contexts: number; manifests: number; tools: number; initialized: boolean } {
         if (!this.isInitialized || !this.cache) {
-            return { contexts: 0, manifests: 0, initialized: false };
+            return { contexts: 0, manifests: 0, tools: 0, initialized: false };
         }
 
         return {
             contexts: this.cache.contexts.size,
             manifests: this.cache.manifests.size,
+            tools: Object.keys(this.cache.loadedTools).length,
             initialized: this.isInitialized
         };
+    }
+
+    /**
+     * Loads all tools from manifest files
+     * Reads tool files from disk and stores them in memory
+     */
+    private async loadTools(manifests: Map<string, object>): Promise<Record<string, ToolFunction>> {
+        const loadedTools: Record<string, ToolFunction> = {};
+        const __filename = fileURLToPath(import.meta.url);
+        const __dirname = dirname(__filename);
+        const toolsDir = join(__dirname, '..', 'tools');
+
+        try {
+            // Get all unique tool names from all manifests
+            const allToolNames = new Set<string>();
+
+            for (const manifest of manifests.values()) {
+                const manifestObj = manifest as any;
+                if (manifestObj.tools && Array.isArray(manifestObj.tools)) {
+                    for (const tool of manifestObj.tools) {
+                        if (tool.type === 'function') {
+                            const functionName = tool.function?.name || tool.name;
+                            if (functionName) {
+                                allToolNames.add(functionName);
+                            }
+                        }
+                    }
+                }
+            }
+
+            logOut('CachedAssetsService', `Loading ${allToolNames.size} unique tools...`);
+
+            // Load each unique tool
+            for (const toolName of allToolNames) {
+                try {
+                    const toolModule = await import(join(toolsDir, `${toolName}.js`));
+                    loadedTools[toolName] = toolModule.default;
+                    logOut('CachedAssetsService', `Loaded tool: ${toolName}`);
+                } catch (error) {
+                    logError('CachedAssetsService', `Failed to load tool ${toolName}: ${error instanceof Error ? error.message : String(error)}`);
+                }
+            }
+
+            logOut('CachedAssetsService', `Successfully loaded ${Object.keys(loadedTools).length} tools`);
+            return loadedTools;
+        } catch (error) {
+            logError('CachedAssetsService', `Error loading tools: ${error instanceof Error ? error.message : String(error)}`);
+            return loadedTools;
+        }
     }
 
     /**
