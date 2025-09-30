@@ -25,8 +25,8 @@ export class SyncAssetLoader implements AssetLoader {
     private readonly SERVICE_DEFINITIONS: SyncServiceMap[] = [
         {
             name: 'ConversationRelay',
-            maps: ['Configuration', 'Context', 'ToolManifest'],
-            documents: ['UsedConfig']
+            maps: ['Context', 'ToolManifest'],
+            documents: ['serverConfig']
         }
     ];
 
@@ -45,25 +45,15 @@ export class SyncAssetLoader implements AssetLoader {
      */
     async loadServerConfig(): Promise<ServerConfig> {
         try {
-            const serverConfigData = await this.getDocument('ConversationRelay', 'ServerConfig');
+            const serverConfigData = await this.getDocument('ConversationRelay', 'serverConfig');
 
-            // Provide defaults if no config found - this should match serverConfig.json structure
-            return serverConfigData || {
-                ConversationRelay: {
-                    Configuration: { languages: [], parameters: [] },
-                    SilenceDetection: { enabled: true, secondsThreshold: 20, messages: [] }
-                },
-                AssetLoader: {
-                    context: 'defaultContext',
-                    manifest: 'defaultToolManifest',
-                    assetLoaderType: 'sync'
-                },
-                Server: {
-                    ListenMode: { enabled: false }
-                }
-            };
+            if (!serverConfigData) {
+                throw new Error('serverConfig document not found in Sync');
+            }
+
+            return serverConfigData;
         } catch (error) {
-            logError('SyncAssetLoader', `Failed to load ServerConfig: ${error instanceof Error ? error.message : String(error)}`);
+            logError('SyncAssetLoader', `Failed to load serverConfig: ${error instanceof Error ? error.message : String(error)}`);
             throw error;
         }
     }
@@ -114,44 +104,6 @@ export class SyncAssetLoader implements AssetLoader {
         }
     }
 
-    /**
-     * Loads ConversationRelay configuration from Sync map
-     */
-    async loadConversationRelayConfig(): Promise<any> {
-        try {
-            const configData = await this.getMapItem('ConversationRelay', 'Configuration');
-
-            logOut('SyncAssetLoader', `Loaded ConversationRelay configuration from Sync`);
-            return configData || {};
-        } catch (error) {
-            logError('SyncAssetLoader', `Failed to load ConversationRelay configuration: ${error instanceof Error ? error.message : String(error)}`);
-            throw error;
-        }
-    }
-
-    /**
-     * Loads language configuration from nested Configuration.languages
-     */
-    async loadLanguages(): Promise<Map<string, any>> {
-        try {
-            const configData = await this.getMapItem('ConversationRelay', 'Configuration', 'defaultConfig');
-            const languages = new Map<string, any>();
-
-            if (configData?.Configuration?.languages && Array.isArray(configData.Configuration.languages)) {
-                configData.Configuration.languages.forEach((langConfig: any) => {
-                    if (langConfig.code) {
-                        languages.set(langConfig.code, langConfig);
-                    }
-                });
-            }
-
-            logOut('SyncAssetLoader', `Loaded ${languages.size} language configurations from nested Configuration`);
-            return languages;
-        } catch (error) {
-            logError('SyncAssetLoader', `Failed to load language configurations: ${error instanceof Error ? error.message : String(error)}`);
-            throw error;
-        }
-    }
 
     /**
      * Ensures a Sync Service exists, creates if it doesn't
@@ -410,30 +362,26 @@ export class SyncAssetLoader implements AssetLoader {
     }
 
     /**
-     * Initializes Sync services, maps, documents and loads default assets
+     * Initializes Sync services, maps, documents and loads assets from local files
      * Should be called before loading assets to ensure Sync infrastructure exists
      */
     async initialize(): Promise<void> {
         try {
-            logOut('SyncAssetLoader', 'Initializing Sync Services and Maps');
+            logOut('SyncAssetLoader', 'Initializing Sync Services, Maps, and Documents');
 
-            // Phase 1: Ensure all services exist first
-            let isFirstTimeConversationRelay = false;
+            // Ensure all services exist
             for (const serviceDef of this.SERVICE_DEFINITIONS) {
-                const isNewService = await this.ensureService(serviceDef.name);
-                if (serviceDef.name === 'ConversationRelay' && isNewService) {
-                    isFirstTimeConversationRelay = true;
-                }
+                await this.ensureService(serviceDef.name);
             }
 
-            // Phase 2: Ensure all maps exist
+            // Ensure all maps exist
             for (const serviceDef of this.SERVICE_DEFINITIONS) {
                 for (const mapName of serviceDef.maps) {
                     await this.ensureMap(serviceDef.name, mapName);
                 }
             }
 
-            // Phase 3: Ensure all documents exist
+            // Ensure all documents exist
             for (const serviceDef of this.SERVICE_DEFINITIONS) {
                 if (serviceDef.documents) {
                     for (const docName of serviceDef.documents) {
@@ -442,14 +390,10 @@ export class SyncAssetLoader implements AssetLoader {
                 }
             }
 
-            // Phase 4: Load assets based on first-time vs restart
-            if (isFirstTimeConversationRelay) {
-                await this.loadDefaultAssets(true); // Load all assets including defaults
-                logOut('SyncAssetLoader', 'First-time setup complete - all services, maps, and default assets initialized');
-            } else {
-                await this.loadDefaultAssets(false); // Load only config assets, skip defaults
-                logOut('SyncAssetLoader', 'Existing setup loaded - services, maps reconnected, and config assets reloaded');
-            }
+            // Scan and load all assets from local files
+            await this.scanAndLoadAssets();
+
+            logOut('SyncAssetLoader', 'Initialization complete - services, maps, documents created and local assets loaded');
         } catch (error) {
             logError('SyncAssetLoader', `Failed to initialize: ${error instanceof Error ? error.message : String(error)}`);
             throw error;
@@ -457,58 +401,48 @@ export class SyncAssetLoader implements AssetLoader {
     }
 
     /**
-     * Loads assets into ConversationRelay service from serverConfig.json
-     * @param loadDefaults - If true, loads default context and manifest. If false, only loads config assets.
+     * Scans assets directory and loads all found files into Sync
      */
-    private async loadDefaultAssets(loadDefaults: boolean = true): Promise<void> {
+    private async scanAndLoadAssets(): Promise<void> {
         try {
-            if (loadDefaults) {
-                logOut('SyncAssetLoader', 'Loading all default assets for first-time setup');
-            } else {
-                logOut('SyncAssetLoader', 'Reloading configuration assets');
+            logOut('SyncAssetLoader', 'Scanning assets directory and loading files to Sync');
+
+            // Load serverConfig.json if it exists
+            const serverConfig = await this.loadAssetFile('serverConfig.json');
+            if (serverConfig) {
+                await this.setDocument('ConversationRelay', 'serverConfig', serverConfig);
+                logOut('SyncAssetLoader', 'Loaded serverConfig.json into serverConfig document');
             }
 
-            // Always load/reload configuration assets
-            const defaultConfig = await this.loadAssetFile('serverConfig.json');
-            if (defaultConfig) {
-                const configObj = defaultConfig as any;
+            // Scan for all files in assets directory
+            const files = await fs.readdir(this.assetsPath);
 
-                // Load ConversationRelay section into Configuration map
-                if (configObj.ConversationRelay) {
-                    await this.setMapItem('ConversationRelay', 'Configuration', 'defaultConfig', configObj.ConversationRelay);
-                    logOut('SyncAssetLoader', 'Loaded ConversationRelay section into Configuration map');
-                }
-
-                // Languages are now nested within ConversationRelay.Configuration.languages
-                // No separate Languages map needed
-
-                // Load UsedConfig section into UsedConfig document (always update from serverConfig.json)
-                if (configObj.UsedConfig) {
-                    await this.setDocument('ConversationRelay', 'UsedConfig', configObj.UsedConfig);
-                    logOut('SyncAssetLoader', 'Loaded UsedConfig section into UsedConfig document');
-                }
-            }
-
-            // Only load default context and manifest on first-time setup
-            if (loadDefaults) {
-                const defaultContext = await this.loadAssetFile('defaultContext.md');
-                const defaultManifest = await this.loadAssetFile('defaultToolManifest.json');
-
-                if (defaultContext) {
+            // Load all .md files into Context map
+            const contextFiles = files.filter(file => file.endsWith('.md'));
+            for (const file of contextFiles) {
+                const content = await this.loadAssetFile(file);
+                if (content) {
+                    const key = file.replace('.md', '');
                     // Wrap string content in JSON object for Sync compatibility
-                    await this.setMapItem('ConversationRelay', 'Context', 'defaultContext', { content: defaultContext });
-                    logOut('SyncAssetLoader', 'Loaded defaultContext into Context map');
+                    await this.setMapItem('ConversationRelay', 'Context', key, { content });
+                    logOut('SyncAssetLoader', `Loaded ${file} into Context map as ${key}`);
                 }
-
-                if (defaultManifest) {
-                    await this.setMapItem('ConversationRelay', 'ToolManifest', 'defaultToolManifest', defaultManifest as object);
-                    logOut('SyncAssetLoader', 'Loaded defaultToolManifest into ToolManifest map');
-                }
-            } else {
-                logOut('SyncAssetLoader', 'Skipping defaultContext and defaultManifest reload (preserving existing)');
             }
+
+            // Load all .json files (except serverConfig.json) into ToolManifest map
+            const manifestFiles = files.filter(file => file.endsWith('.json') && file !== 'serverConfig.json');
+            for (const file of manifestFiles) {
+                const content = await this.loadAssetFile(file);
+                if (content) {
+                    const key = file.replace('.json', '');
+                    await this.setMapItem('ConversationRelay', 'ToolManifest', key, content as object);
+                    logOut('SyncAssetLoader', `Loaded ${file} into ToolManifest map as ${key}`);
+                }
+            }
+
+            logOut('SyncAssetLoader', `Asset scan complete: ${contextFiles.length} contexts, ${manifestFiles.length} manifests${serverConfig ? ', 1 serverConfig' : ''}`);
         } catch (error) {
-            logError('SyncAssetLoader', `Failed to load assets: ${error instanceof Error ? error.message : String(error)}`);
+            logError('SyncAssetLoader', `Failed to scan and load assets: ${error instanceof Error ? error.message : String(error)}`);
             // Don't throw - service creation should still succeed even if asset loading fails
         }
     }

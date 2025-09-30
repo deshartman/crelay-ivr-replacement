@@ -74,14 +74,24 @@ class CachedAssetsService {
                 logOut('CachedAssetsService', 'Asset loader initialized');
             }
 
-            // Load server config, contexts, manifests, and configuration from asset loader
-            const [serverConfig, contexts, manifests, conversationRelayConfig, languages] = await Promise.all([
+            // Load server config, contexts, and manifests from asset loader
+            const [serverConfig, contexts, manifests] = await Promise.all([
                 this.assetLoader.loadServerConfig(),
                 this.assetLoader.loadContexts(),
-                this.assetLoader.loadManifests(),
-                this.assetLoader.loadConversationRelayConfig(),
-                this.assetLoader.loadLanguages()
+                this.assetLoader.loadManifests()
             ]);
+
+            // Extract ConversationRelay configuration and languages from serverConfig
+            const conversationRelayConfig = serverConfig.ConversationRelay?.Configuration || {};
+
+            const languages = new Map<string, any>();
+            if (serverConfig.ConversationRelay?.Configuration?.languages && Array.isArray(serverConfig.ConversationRelay.Configuration.languages)) {
+                serverConfig.ConversationRelay.Configuration.languages.forEach((langConfig: any) => {
+                    if (langConfig.code) {
+                        languages.set(langConfig.code, langConfig);
+                    }
+                });
+            }
 
             // Load tools from manifests
             const loadedTools = await this.loadTools(manifests);

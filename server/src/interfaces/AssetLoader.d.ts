@@ -59,15 +59,4 @@ export interface AssetLoader {
      */
     loadManifests(): Promise<Map<string, object>>;
 
-    /**
-     * Loads ConversationRelay configuration settings
-     * @returns Promise resolving to the ConversationRelay configuration object
-     */
-    loadConversationRelayConfig(): Promise<any>;
-
-    /**
-     * Loads language configuration settings from nested Configuration.languages
-     * @returns Promise resolving to a Map of language codes to language configuration objects
-     */
-    loadLanguages(): Promise<Map<string, any>>;
 }

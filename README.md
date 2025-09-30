@@ -2,24 +2,29 @@
 
 This is a reference implementation aimed at introducing the key concepts of Conversation Relay. The key here is to ensure it is a workable environment that can be used to understand the basic concepts of Conversation Relay. It is intentionally simple and only the minimum has been done to ensure the understanding is focussed on the core concepts.
 
-## Release v4.7.0 - Configuration System Redesign
+## Release v4.8.0 - Asset Loading Simplification
 
-This release introduces **major breaking changes** to the configuration system, providing a cleaner, more organized structure for managing server settings.
+This release continues the v4.7.0 configuration improvements with significant asset loading simplifications and enhanced serverConfig structure.
 
-**🔧 Breaking Changes:**
-- **Configuration File**: `defaultConfig.json` → `serverConfig.json`
-- **Configuration Structure**: Complete reorganization into logical sections (ConversationRelay, AssetLoader, Server)
-- **Interface Changes**: `UsedConfig` → `ServerConfig` with updated method signatures
-- **Asset Loading**: Enhanced multi-source asset management system
+**🔧 Enhanced Configuration:**
+- **Languages Structure**: Languages moved to `ConversationRelay.Configuration.languages[]` for better TwiML integration
+- **Enhanced Properties**: Added Twilio ConversationRelay properties (interruptSensitivity, profanityFilter, transcription/TTS settings)
+- **Type Safety**: Improved TypeScript interfaces using Twilio's official definitions
 
-**✅ Breaking Changes:** TwilioService constructor no longer requires dependencies - enables standalone tool usage (e.g., send-sms)
+**📦 Simplified Asset Loading:**
+- **File Loading**: Smart filtering preserved - contexts (.md files), manifests (files containing "manifest"/"tool")
+- **Sync Loading**: Automatic asset scanning - all local files sync to Twilio Sync on startup
+- **Mixed Workflow**: Support for both local files and direct Sync management
 
 **📦 Asset Loading Options:**
 - **`"file"`** - Load from local files (recommended for development)
-- **`"sync"`** - Load from Twilio Sync (recommended for production)
+- **`"sync"`** - Load from Twilio Sync + auto-sync local files (recommended for production)
 - **`"j2"`** - Reserved for future implementation
 
-**✅ Backward Compatible**: Existing Sync deployments work automatically with `"assetLoaderType": "sync"`
+**✅ Developer Benefits:**
+- Predictable asset loading: local files are always synchronized
+- Support for multiple context/manifest files
+- Eliminated complex conditional loading logic
 
 See the [CHANGELOG.md](./CHANGELOG.md) for detailed release history.
 
@@ -164,10 +169,13 @@ const conversationRelay = connect.conversationRelay({
 ```
 
 **Configuration Management:**
-- All TwiML parameters are stored in Sync Maps under the `ConversationRelay` service
-- Configuration can be updated via API without server restarts
-- Changes take effect immediately for new calls
-- Language-specific settings support multi-language operations
+- **File Mode (`"assetLoaderType": "file"`)**: Configuration loaded from `serverConfig.json`
+- **Sync Mode (`"assetLoaderType": "sync"`)**:
+  - Configuration stored in Sync `serverConfig` document
+  - Local `serverConfig.json` automatically synced to Sync on startup
+  - Configuration can be updated via Sync API without server restarts
+- **Language Support**: Languages array nested in `ConversationRelay.Configuration.languages[]`
+- **Enhanced Properties**: Full Twilio ConversationRelay TwiML properties supported
 
 ### WebSocket Connection Flow
 
@@ -178,7 +186,20 @@ const conversationRelay = connect.conversationRelay({
 
 ## OpenAI Context Configuration
 
-The server uses **Twilio Sync Maps** to store and manage OpenAI conversation contexts and tool manifests:
+The server supports flexible context and manifest management through both local files and Twilio Sync storage:
+
+### Asset Loading Approaches
+
+**File-Based Loading (`"assetLoaderType": "file"`):**
+- **Contexts**: All `.md` files and files containing "context" in the name
+- **Manifests**: All `.json` files containing "manifest" or "tool" in the name (excluding `serverConfig.json`)
+- **Best for**: Development, version control of assets, simple deployments
+
+**Sync-Based Loading (`"assetLoaderType": "sync"`):**
+- **Hybrid Approach**: Local files automatically synced to Twilio Sync on startup
+- **Runtime Management**: Contexts and manifests can be managed directly in Sync
+- **Persistence**: Sync-managed content preserved between server restarts
+- **Best for**: Production deployments, dynamic asset management, multi-environment setups
 
 ### Context Documents
 

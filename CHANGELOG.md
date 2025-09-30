@@ -1,5 +1,79 @@
 # Changelog
 
+## Release v4.8.0
+
+### Configuration Structure Refinements & Asset Loading Simplification
+
+Building on v4.7.0's configuration redesign, this release includes further structural improvements and significant asset loading simplifications.
+
+#### 🔧 Configuration Structure Updates (Commit 855577a)
+
+**Languages Array Reorganization:**
+- **Moved**: `Languages` array from top-level `ConversationRelay.Languages` → nested `ConversationRelay.Configuration.languages`
+- **Enhanced**: serverConfig.json with additional Twilio ConversationRelay properties:
+  - `interruptSensitivity`, `partialPrompts`, `profanityFilter`
+  - `transcriptionLanguage`, `transcriptionProvider`, `ttsLanguage`, `ttsProvider`, `voice`, `speechModel`
+  - `parameters` array for dynamic parameter passing
+
+**TypeScript Interface Improvements:**
+- **Renamed**: `AssetLoader.ts` → `AssetLoader.d.ts` (proper TypeScript declaration file)
+- **Enhanced**: ConversationRelay interfaces to use Twilio's official TypeScript definitions
+- **Added**: Proper typing with `ConversationRelayConfig` extending Twilio's `ConversationRelayAttributes`
+
+#### 🚨 Breaking Changes
+
+**Asset Loading Interface Simplification:**
+- **Removed**: `loadConversationRelayConfig()` and `loadLanguages()` methods from AssetLoader interface
+- **Reason**: Eliminated redundancy - data now accessed directly from serverConfig
+- **Migration**: Use `CachedAssetsService.getConversationRelayConfig()` and `CachedAssetsService.getLanguages()` instead
+
+**SyncAssetLoader Architecture Overhaul:**
+- **Simplified Structure**:
+  - Single `serverConfig` Sync document (replaces Configuration map)
+  - `Context` and `ToolManifest` maps for multiple entries only
+  - Removed Languages map (now nested in Configuration)
+- **Automatic Asset Loading**: Scans local assets directory on startup, loads all files to Sync
+- **Eliminated Complexity**: Removed first-time vs restart detection logic
+
+#### ✅ Improvements
+
+**OpenAI Service Architecture (Commit 9a75a2c):**
+- **Moved**: OpenAI service creation from individual services to server-level initialization
+- **Benefits**: Centralized configuration, better dependency management, easier testing
+
+**Enhanced Development Workflow:**
+- **File Asset Loading**: Maintains smart filtering for context (.md + "context") and manifest ("manifest"/"tool") files
+- **Sync Asset Loading**: Simple "all local files sync to Sync on startup" approach
+- **Mixed Workflow Support**: Local files + direct Sync management both supported
+
+**Consistent Data Access:**
+- CachedAssetsService extracts ConversationRelay config and languages directly from serverConfig
+- Eliminated duplicate loading paths and potential data inconsistencies
+- Maintained backward compatibility for existing getter methods
+
+#### 🔧 Technical Details
+
+**Configuration Path Updates:**
+- Languages now accessed via `serverConfig.ConversationRelay.Configuration.languages[]`
+- Enhanced type safety with Twilio's official TypeScript interfaces
+- Proper parameter and language array structures for TwiML generation
+
+**Asset Loader Consistency:**
+- Both FileAssetLoader and SyncAssetLoader provide identical simplified interfaces
+- SyncAssetLoader preserves existing Sync content while updating from local files
+- Predictable asset loading behavior across different storage backends
+
+#### Migration Notes
+
+**For Existing SyncAssetLoader Users:**
+- Languages map will be automatically migrated to nested Configuration structure
+- Existing Sync content preserved while local assets are reloaded
+- No manual intervention required for standard configurations
+
+**For Custom AssetLoader Implementations:**
+- Remove `loadConversationRelayConfig()` and `loadLanguages()` method implementations
+- Access this data through CachedAssetsService instead
+
 ## Release v4.7.0
 
 ### Major Breaking Changes: Complete Configuration System Redesign
