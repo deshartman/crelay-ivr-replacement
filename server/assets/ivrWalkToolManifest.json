@@ -1,0 +1,126 @@
+{
+    "tools": [
+        {
+            "type": "function",
+            "name": "end-call",
+            "description": "end this call now",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "conversationSummary": {
+                        "type": "string",
+                        "description": "A summary of the call"
+                    }
+                },
+                "required": [
+                    "conversationSummary"
+                ]
+            },
+            "strict": false
+        },
+        {
+            "type": "function",
+            "name": "send-dtmf",
+            "description": "This sends DTMF tones to the call for IVR navigation",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "dtmfDigit": {
+                        "type": "string",
+                        "description": "The DTMF digit value to send (typically '1' for leftmost path navigation)"
+                    }
+                },
+                "required": [
+                    "dtmfDigit"
+                ]
+            },
+            "strict": false
+        },
+        {
+            "type": "function",
+            "name": "write_legs",
+            "description": "Documents individual IVR menu steps with path details, transcripts, and DTMF actions for step-by-step navigation tracking",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "menuPath": {
+                        "type": "string",
+                        "description": "Current menu path (e.g., 'root', '1', '1-1', '1-1-1')"
+                    },
+                    "audioTranscript": {
+                        "type": "string",
+                        "description": "Full text of the spoken menu prompt for this specific step"
+                    },
+                    "availableOptions": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "List of available menu options with descriptions for this step"
+                    },
+                    "dtmfSent": {
+                        "type": "string",
+                        "description": "DTMF digit pressed to navigate from this menu (optional if terminal step)"
+                    },
+                    "outcome": {
+                        "type": "string",
+                        "description": "Result of this menu step (navigation, queue, agent connection, etc.)"
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": ["COMPLETED", "IN_PROGRESS", "FAILED"],
+                        "description": "Current status of this menu step"
+                    }
+                },
+                "required": [
+                    "menuPath",
+                    "audioTranscript",
+                    "availableOptions",
+                    "outcome",
+                    "status"
+                ],
+                "additionalProperties": false
+            },
+            "strict": false
+        },
+        {
+            "type": "function",
+            "name": "read_legs",
+            "description": "Loads previously documented IVR exploration data to review past leftmost path navigation attempts",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "filterStatus": {
+                        "type": "string",
+                        "enum": ["COMPLETED", "IN_PROGRESS", "FAILED", "ALL"],
+                        "description": "Filter results by exploration status (defaults to ALL if not specified)"
+                    },
+                    "targetPath": {
+                        "type": "string",
+                        "description": "Optional specific path to look up (e.g., '1', '1-1')"
+                    }
+                },
+                "required": [],
+                "additionalProperties": false
+            },
+            "strict": false
+        },
+        {
+            "type": "function",
+            "name": "set-listen-mode",
+            "description": "Enable/disable listen mode to control text response generation - CRelay listens but does not speak",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "enabled": {
+                        "type": "boolean",
+                        "description": "True for listen-only IVR navigation, false for verbal human interaction"
+                    }
+                },
+                "required": ["enabled"],
+                "additionalProperties": false
+            },
+            "strict": false
+        }
+    ]
+}
