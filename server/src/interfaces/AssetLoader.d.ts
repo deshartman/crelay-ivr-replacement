@@ -20,8 +20,8 @@ export interface ServerConfig {
         SilenceDetection: SilenceDetectionConfig;
     };
     AssetLoader: {
-        context: string;
-        manifest: string;
+        contextName: string;
+        manifestName: string;
         assetLoaderType: AssetLoaderConfig;
     };
     Server: {

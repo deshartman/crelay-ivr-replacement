@@ -55,7 +55,7 @@ class CachedAssetsService {
 
     private assetLoader: AssetLoader | null = null;
 
-    constructor() {}
+    constructor() { }
 
     /**
      * Initializes the cache by reading configuration and loading assets from the appropriate loader
@@ -121,11 +121,11 @@ class CachedAssetsService {
     getUsedAssets(): { context: string; manifest: object; silenceDetection: SilenceDetectionConfig; listenMode: { enabled: boolean }; loadedTools: Record<string, ToolFunction> } {
         this.ensureInitialized();
 
-        const defaultContextKey = this.cache!.serverConfig.AssetLoader.context;
-        const defaultManifestKey = this.cache!.serverConfig.AssetLoader.manifest;
+        const contextUsed = this.cache!.serverConfig.AssetLoader.contextName;
+        const manifestUsed = this.cache!.serverConfig.AssetLoader.manifestName;
 
-        const context = this.cache!.contexts.get(defaultContextKey);
-        const manifest = this.cache!.manifests.get(defaultManifestKey);
+        const context = this.cache!.contexts.get(contextUsed);
+        const manifest = this.cache!.manifests.get(manifestUsed);
 
         // Default silence detection config if not provided
         const defaultSilenceConfig: SilenceDetectionConfig = {
@@ -185,7 +185,7 @@ class CachedAssetsService {
         }
 
         // Use currently used manifest for context switches
-        const usedManifest = this.cache!.manifests.get(this.cache!.serverConfig.AssetLoader.manifest) || {};
+        const usedManifest = this.cache!.manifests.get(this.cache!.serverConfig.AssetLoader.manifestName) || {};
 
         return {
             context,

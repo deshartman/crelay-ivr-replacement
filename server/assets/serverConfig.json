@@ -47,8 +47,8 @@
         }
     },
     "AssetLoader": {
-        "context": "defaultContext",
-        "manifest": "defaultToolManifest",
+        "contextName": "defaultContext",
+        "manifestName": "defaultToolManifest",
         "assetLoaderType": "file"
     },
     "Server": {
