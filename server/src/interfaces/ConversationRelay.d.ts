@@ -212,12 +212,6 @@ export interface ConversationRelay {
  * ConversationRelayService class declaration
  */
 export declare class ConversationRelayService implements ConversationRelay {
-    static create(
-        sessionData: SessionData,
-        cachedAssetsService: CachedAssetsService,
-        callSid?: string
-    ): Promise<ConversationRelayService>;
-
     createConversationRelayHandler(handler: ConversationRelayHandler): void;
     setupMessage(sessionData: SessionData): Promise<void>;
     incomingMessage(message: IncomingMessage): Promise<void>;

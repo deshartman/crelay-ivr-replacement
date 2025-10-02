@@ -41,6 +41,34 @@ export class SyncAssetLoader implements AssetLoader {
     }
 
     /**
+     * Scans Sync Context map for all available context keys
+     * @returns Array of context keys
+     */
+    private async scanContextKeys(): Promise<string[]> {
+        try {
+            const allData = await this.getMapItem('ConversationRelay', 'Context');
+            return Object.keys(allData || {});
+        } catch (error) {
+            logError('SyncAssetLoader', `Failed to scan context keys: ${error instanceof Error ? error.message : String(error)}`);
+            return [];
+        }
+    }
+
+    /**
+     * Scans Sync ToolManifest map for all available manifest keys
+     * @returns Array of manifest keys
+     */
+    private async scanManifestKeys(): Promise<string[]> {
+        try {
+            const allData = await this.getMapItem('ConversationRelay', 'ToolManifest');
+            return Object.keys(allData || {});
+        } catch (error) {
+            logError('SyncAssetLoader', `Failed to scan manifest keys: ${error instanceof Error ? error.message : String(error)}`);
+            return [];
+        }
+    }
+
+    /**
      * Loads the server configuration from Sync document
      */
     async loadServerConfig(): Promise<ServerConfig> {
@@ -59,19 +87,25 @@ export class SyncAssetLoader implements AssetLoader {
     }
 
     /**
-     * Loads all contexts from Sync map
+     * Loads specific contexts by keys from Sync map
+     * @param keys Array of context keys to load
      */
-    async loadContexts(): Promise<Map<string, string>> {
+    async loadContexts(keys: string[]): Promise<Map<string, string>> {
         try {
-            const contextData = await this.getMapItem('ConversationRelay', 'Context');
             const contexts = new Map<string, string>();
 
-            if (contextData) {
-                Object.entries(contextData).forEach(([key, value]) => {
-                    contexts.set(key, typeof value === 'object' && value && 'content' in value
-                        ? (value as any).content
-                        : String(value || ''));
-                });
+            for (const key of keys) {
+                try {
+                    const value = await this.getMapItem('ConversationRelay', 'Context', key);
+                    if (value) {
+                        const content = typeof value === 'object' && value && 'content' in value
+                            ? (value as any).content
+                            : String(value || '');
+                        contexts.set(key, content);
+                    }
+                } catch (error) {
+                    logError('SyncAssetLoader', `Failed to load context ${key}: ${error instanceof Error ? error.message : String(error)}`);
+                }
             }
 
             logOut('SyncAssetLoader', `Loaded ${contexts.size} contexts from Sync`);
@@ -83,17 +117,22 @@ export class SyncAssetLoader implements AssetLoader {
     }
 
     /**
-     * Loads all manifests from Sync map
+     * Loads specific manifests by keys from Sync map
+     * @param keys Array of manifest keys to load
      */
-    async loadManifests(): Promise<Map<string, object>> {
+    async loadManifests(keys: string[]): Promise<Map<string, object>> {
         try {
-            const manifestData = await this.getMapItem('ConversationRelay', 'ToolManifest');
             const manifests = new Map<string, object>();
 
-            if (manifestData) {
-                Object.entries(manifestData).forEach(([key, value]) => {
-                    manifests.set(key, value || {});
-                });
+            for (const key of keys) {
+                try {
+                    const value = await this.getMapItem('ConversationRelay', 'ToolManifest', key);
+                    if (value) {
+                        manifests.set(key, value || {});
+                    }
+                } catch (error) {
+                    logError('SyncAssetLoader', `Failed to load manifest ${key}: ${error instanceof Error ? error.message : String(error)}`);
+                }
             }
 
             logOut('SyncAssetLoader', `Loaded ${manifests.size} manifests from Sync`);

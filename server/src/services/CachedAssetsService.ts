@@ -31,23 +31,9 @@ import { fileURLToPath } from 'url';
 import { logOut, logError } from '../utils/logger.js';
 import type { AssetLoader, ServerConfig, AssetLoaderConfig } from '../interfaces/AssetLoader.js';
 import type { SilenceDetectionConfig } from './SilenceHandler.js';
-import type { ToolResult } from '../interfaces/ResponseService.js';
 import { SyncAssetLoader } from './SyncAssetLoader.js';
 import { FileAssetLoader } from './FileAssetLoader.js';
-
-/**
- * Type for loaded tool function
- */
-type ToolFunction = (args: any) => Promise<ToolResult> | ToolResult;
-
-interface CachedAssets {
-    contexts: Map<string, string>;
-    manifests: Map<string, object>;
-    serverConfig: ServerConfig;
-    conversationRelayConfig: any;
-    languages: Map<string, any>;
-    loadedTools: Record<string, ToolFunction>;
-}
+import type { ToolFunction, CachedAssets, ActiveAssets, CacheStats } from '../interfaces/CachedAssetsService.js';
 
 class CachedAssetsService {
     private cache: CachedAssets | null = null;
@@ -55,7 +41,7 @@ class CachedAssetsService {
 
     private assetLoader: AssetLoader | null = null;
 
-    constructor() {}
+    constructor() { }
 
     /**
      * Initializes the cache by reading configuration and loading assets from the appropriate loader
@@ -74,11 +60,19 @@ class CachedAssetsService {
                 logOut('CachedAssetsService', 'Asset loader initialized');
             }
 
+            // Scan for available context and manifest keys
+            const [contextKeys, manifestKeys] = await Promise.all([
+                (this.assetLoader as any).scanContextFiles?.() || (this.assetLoader as any).scanContextKeys?.() || [],
+                (this.assetLoader as any).scanManifestFiles?.() || (this.assetLoader as any).scanManifestKeys?.() || []
+            ]);
+
+            logOut('CachedAssetsService', `Found ${contextKeys.length} contexts and ${manifestKeys.length} manifests to load`);
+
             // Load server config, contexts, and manifests from asset loader
             const [serverConfig, contexts, manifests] = await Promise.all([
                 this.assetLoader.loadServerConfig(),
-                this.assetLoader.loadContexts(),
-                this.assetLoader.loadManifests()
+                this.assetLoader.loadContexts(contextKeys),
+                this.assetLoader.loadManifests(manifestKeys)
             ]);
 
             // Extract ConversationRelay configuration and languages from serverConfig
@@ -115,17 +109,17 @@ class CachedAssetsService {
     }
 
     /**
-     * Gets the currently used context and manifest based on UsedConfig
+     * Gets the currently active context and manifest based on serverConfig
      * Returns fresh copies for each session
      */
-    getUsedAssets(): { context: string; manifest: object; silenceDetection: SilenceDetectionConfig; listenMode: { enabled: boolean }; loadedTools: Record<string, ToolFunction> } {
+    getActiveAssets(): ActiveAssets {
         this.ensureInitialized();
 
-        const defaultContextKey = this.cache!.serverConfig.AssetLoader.context;
-        const defaultManifestKey = this.cache!.serverConfig.AssetLoader.manifest;
+        const activeContextKey = this.cache!.serverConfig.AssetLoader.activeContextKey;
+        const activeManifestKey = this.cache!.serverConfig.AssetLoader.activeManifestKey;
 
-        const context = this.cache!.contexts.get(defaultContextKey);
-        const manifest = this.cache!.manifests.get(defaultManifestKey);
+        const context = this.cache!.contexts.get(activeContextKey);
+        const manifest = this.cache!.manifests.get(activeManifestKey);
 
         // Default silence detection config if not provided
         const defaultSilenceConfig: SilenceDetectionConfig = {
@@ -184,12 +178,12 @@ class CachedAssetsService {
             return null;
         }
 
-        // Use currently used manifest for context switches
-        const usedManifest = this.cache!.manifests.get(this.cache!.serverConfig.AssetLoader.manifest) || {};
+        // Use currently active manifest for context switches
+        const activeManifest = this.cache!.manifests.get(this.cache!.serverConfig.AssetLoader.activeManifestKey) || {};
 
         return {
             context,
-            manifest: JSON.parse(JSON.stringify(usedManifest))
+            manifest: JSON.parse(JSON.stringify(activeManifest))
         };
     }
 
@@ -274,7 +268,7 @@ class CachedAssetsService {
     /**
      * Gets cache statistics for monitoring
      */
-    getCacheStats(): { contexts: number; manifests: number; tools: number; initialized: boolean } {
+    getCacheStats(): CacheStats {
         if (!this.isInitialized || !this.cache) {
             return { contexts: 0, manifests: 0, tools: 0, initialized: false };
         }
@@ -383,6 +377,54 @@ class CachedAssetsService {
         } catch (error) {
             logError('CachedAssetsService', `Failed to read asset loader config: ${error instanceof Error ? error.message : String(error)}, defaulting to sync`);
             return 'sync';
+        }
+    }
+
+    /**
+     * Loads additional contexts at runtime and adds them to the cache
+     * @param contextKeys Array of context keys to load
+     */
+    async loadAndCacheContexts(contextKeys: string[]): Promise<void> {
+        this.ensureInitialized();
+
+        try {
+            const newContexts = await this.assetLoader!.loadContexts(contextKeys);
+            newContexts.forEach((content, key) => {
+                this.cache!.contexts.set(key, content);
+            });
+            logOut('CachedAssetsService', `Loaded ${newContexts.size} additional contexts into cache`);
+        } catch (error) {
+            logError('CachedAssetsService', `Failed to load and cache contexts: ${error instanceof Error ? error.message : String(error)}`);
+            throw error;
+        }
+    }
+
+    /**
+     * Loads additional manifests at runtime and adds them to the cache
+     * Also loads any new tools from the manifests
+     * @param manifestKeys Array of manifest keys to load
+     */
+    async loadAndCacheManifests(manifestKeys: string[]): Promise<void> {
+        this.ensureInitialized();
+
+        try {
+            const newManifests = await this.assetLoader!.loadManifests(manifestKeys);
+
+            // Load tools from new manifests
+            const newTools = await this.loadTools(newManifests);
+
+            // Add manifests to cache
+            newManifests.forEach((content, key) => {
+                this.cache!.manifests.set(key, content);
+            });
+
+            // Add new tools to cache
+            Object.assign(this.cache!.loadedTools, newTools);
+
+            logOut('CachedAssetsService', `Loaded ${newManifests.size} additional manifests and ${Object.keys(newTools).length} new tools into cache`);
+        } catch (error) {
+            logError('CachedAssetsService', `Failed to load and cache manifests: ${error instanceof Error ? error.message : String(error)}`);
+            throw error;
         }
     }
 

@@ -28,6 +28,13 @@
                     "voice": "IKne3meq5aSn9XLyUdCD",
                     "transcriptionProvider": "Deepgram",
                     "speechModel": "nova-3-general"
+                },
+                {
+                    "code": "en-NZ",
+                    "ttsProvider": "ElevenLabs",
+                    "voice": "VEWZvLXUrFL3O7dUnBSW",
+                    "transcriptionProvider": "Deepgram",
+                    "speechModel": "nova-3-general"
                 }
             ],
             "parameters": [
@@ -47,8 +54,8 @@
         }
     },
     "AssetLoader": {
-        "context": "defaultContext",
-        "manifest": "defaultToolManifest",
+        "activeContextKey": "defaultContext",
+        "activeManifestKey": "defaultToolManifest",
         "assetLoaderType": "file"
     },
     "Server": {

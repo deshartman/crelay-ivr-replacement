@@ -20,8 +20,8 @@ export interface ServerConfig {
         SilenceDetection: SilenceDetectionConfig;
     };
     AssetLoader: {
-        context: string;
-        manifest: string;
+        activeContextKey: string;
+        activeManifestKey: string;
         assetLoaderType: AssetLoaderConfig;
     };
     Server: {
@@ -48,15 +48,17 @@ export interface AssetLoader {
     loadServerConfig(): Promise<ServerConfig>;
 
     /**
-     * Loads all available contexts
+     * Loads specific contexts by keys
+     * @param keys Array of context keys to load
      * @returns Promise resolving to a Map of context keys to context content
      */
-    loadContexts(): Promise<Map<string, string>>;
+    loadContexts(keys: string[]): Promise<Map<string, string>>;
 
     /**
-     * Loads all available manifests
+     * Loads specific manifests by keys
+     * @param keys Array of manifest keys to load
      * @returns Promise resolving to a Map of manifest keys to manifest objects
      */
-    loadManifests(): Promise<Map<string, object>>;
+    loadManifests(keys: string[]): Promise<Map<string, object>>;
 
 }

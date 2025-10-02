@@ -847,6 +847,12 @@ cd server
 fly launch --no-deploy
 ```
 
+Take note of the server URL under app = 'XXXXXX' and update your .env file accordingly.
+
+```
+SERVER_BASE_URL=XXXXXX.fly.dev
+```
+
 3. Ensure your `fly.toml` file has the correct port configuration:
 ```toml
 [http]

@@ -23,6 +23,43 @@ export class FileAssetLoader implements AssetLoader {
     }
 
     /**
+     * Scans assets directory for context files (.md files)
+     * @returns Array of context keys (filenames without .md extension)
+     */
+    private async scanContextFiles(): Promise<string[]> {
+        try {
+            const files = await fs.readdir(this.assetsPath);
+            const contextFiles = files.filter(file =>
+                file.endsWith('.md') || file.toLowerCase().includes('context')
+            );
+            return contextFiles.map(file => basename(file, '.md'));
+        } catch (error) {
+            logError('FileAssetLoader', `Failed to scan context files: ${error instanceof Error ? error.message : String(error)}`);
+            return [];
+        }
+    }
+
+    /**
+     * Scans assets directory for manifest files (.json files excluding serverConfig.json)
+     * @returns Array of manifest keys (filenames without .json extension)
+     */
+    private async scanManifestFiles(): Promise<string[]> {
+        try {
+            const files = await fs.readdir(this.assetsPath);
+            const manifestFiles = files.filter(file =>
+                file.endsWith('.json') &&
+                file !== 'serverConfig.json' &&
+                (file.toLowerCase().includes('manifest') || file.toLowerCase().includes('tool'))
+            );
+            return manifestFiles.map(file => basename(file, '.json'));
+        } catch (error) {
+            logError('FileAssetLoader', `Failed to scan manifest files: ${error instanceof Error ? error.message : String(error)}`);
+            return [];
+        }
+    }
+
+
+    /**
      * Loads the server configuration from serverConfig.json
      */
     async loadServerConfig(): Promise<ServerConfig> {
@@ -40,25 +77,23 @@ export class FileAssetLoader implements AssetLoader {
     }
 
     /**
-     * Loads all contexts from .md files in the assets folder
+     * Loads specific contexts by keys
+     * @param keys Array of context keys (filenames without .md extension)
      */
-    async loadContexts(): Promise<Map<string, string>> {
+    async loadContexts(keys: string[]): Promise<Map<string, string>> {
         try {
             const contexts = new Map<string, string>();
-            const files = await fs.readdir(this.assetsPath);
 
-            // Find all .md files that could be contexts
-            const contextFiles = files.filter(file =>
-                file.endsWith('.md') || file.toLowerCase().includes('context')
-            );
+            for (const key of keys) {
+                const filename = `${key}.md`;
+                const filePath = join(this.assetsPath, filename);
 
-            for (const file of contextFiles) {
-                const filePath = join(this.assetsPath, file);
-                const content = await fs.readFile(filePath, 'utf-8');
-
-                // Extract context key from filename (remove .md extension)
-                const contextKey = basename(file, '.md');
-                contexts.set(contextKey, content);
+                try {
+                    const content = await fs.readFile(filePath, 'utf-8');
+                    contexts.set(key, content);
+                } catch (error) {
+                    logError('FileAssetLoader', `Failed to load context ${key}: ${error instanceof Error ? error.message : String(error)}`);
+                }
             }
 
             logOut('FileAssetLoader', `Loaded ${contexts.size} contexts from assets folder`);
@@ -70,28 +105,24 @@ export class FileAssetLoader implements AssetLoader {
     }
 
     /**
-     * Loads all manifests from .json files in the assets folder
+     * Loads specific manifests by keys
+     * @param keys Array of manifest keys (filenames without .json extension)
      */
-    async loadManifests(): Promise<Map<string, object>> {
+    async loadManifests(keys: string[]): Promise<Map<string, object>> {
         try {
             const manifests = new Map<string, object>();
-            const files = await fs.readdir(this.assetsPath);
 
-            // Find all .json files that could be manifests (exclude serverConfig.json)
-            const manifestFiles = files.filter(file =>
-                file.endsWith('.json') &&
-                file !== 'serverConfig.json' &&
-                (file.toLowerCase().includes('manifest') || file.toLowerCase().includes('tool'))
-            );
+            for (const key of keys) {
+                const filename = `${key}.json`;
+                const filePath = join(this.assetsPath, filename);
 
-            for (const file of manifestFiles) {
-                const filePath = join(this.assetsPath, file);
-                const content = await fs.readFile(filePath, 'utf-8');
-                const manifestData = JSON.parse(content);
-
-                // Extract manifest key from filename (remove .json extension)
-                const manifestKey = basename(file, '.json');
-                manifests.set(manifestKey, manifestData);
+                try {
+                    const content = await fs.readFile(filePath, 'utf-8');
+                    const manifestData = JSON.parse(content);
+                    manifests.set(key, manifestData);
+                } catch (error) {
+                    logError('FileAssetLoader', `Failed to load manifest ${key}: ${error instanceof Error ? error.message : String(error)}`);
+                }
             }
 
             logOut('FileAssetLoader', `Loaded ${manifests.size} manifests from assets folder`);

@@ -147,21 +147,21 @@ app.ws('/conversation-relay', (ws: any, req: express.Request) => {
                 logOut('WS', `Creating OpenAIResponseService and ConversationRelayService`);
 
                 // Get pre-loaded assets from CachedAssetsService
-                const usedAssets = cachedAssetsService.getUsedAssets();
+                const activeAssets = cachedAssetsService.getActiveAssets();
 
                 // Create OpenAI ResponseService with pre-loaded assets
                 const responseService = new OpenAIResponseService(
-                    usedAssets.context,
-                    usedAssets.manifest,
-                    usedAssets.loadedTools,
-                    usedAssets.listenMode.enabled
+                    activeAssets.context,
+                    activeAssets.manifest,
+                    activeAssets.loadedTools,
+                    activeAssets.listenMode.enabled
                 );
 
                 // Create ConversationRelayService - it will handle ResponseService setup internally
                 conversationRelaySession = new ConversationRelayService(
                     responseService,
                     sessionData,
-                    usedAssets.silenceDetection
+                    activeAssets.silenceDetection
                 );
 
                 // Set up unified conversation relay handler
@@ -379,7 +379,7 @@ app.post('/updateResponseService', async (req: express.Request, res: express.Res
                     }
                     context = cachedContext;
                 } else {
-                    context = cachedAssetsService.getUsedAssets().context;
+                    context = cachedAssetsService.getActiveAssets().context;
                 }
 
                 if (manifestKey) {
@@ -390,7 +390,7 @@ app.post('/updateResponseService', async (req: express.Request, res: express.Res
                     }
                     toolManifest = cachedManifest;
                 } else {
-                    toolManifest = cachedAssetsService.getUsedAssets().manifest;
+                    toolManifest = cachedAssetsService.getActiveAssets().manifest;
                 }
 
                 // Update the context and manifest content for the sessionResponseService
