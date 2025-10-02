@@ -1,5 +1,56 @@
 # Changelog
 
+## Release v4.9.1
+
+### Automatic Port Selection Enhancement
+
+This release improves the developer experience by implementing automatic port retry when the configured port is already in use.
+
+#### 🎯 Port Conflict Resolution
+
+**Automatic Port Retry:**
+- Server now automatically attempts the next available port when the configured port is in use
+- Eliminates "EADDRINUSE" errors when running multiple server instances
+- Seamless port selection without manual configuration changes
+
+**Technical Implementation:**
+- Enhanced error handling for both HTTP and WebSocketServer instances
+- Intelligent retry logic that increments port numbers until an available port is found
+- Proper error handler attachment to prevent duplicate retry attempts
+
+#### ✅ Benefits
+
+**Developer Experience:**
+- Run multiple development instances simultaneously without port conflicts
+- No need to manually change PORT in .env when testing multiple servers
+- Clear logging shows which port was selected when retry occurs
+
+**Technical Improvements:**
+- Fixed WebSocketServer error handler registration timing
+- Prevented duplicate `server.listen()` calls during retry
+- Clean separation between HTTP and WebSocket error handling
+
+#### 🔧 Usage
+
+**Default Behavior:**
+```bash
+# First instance
+npm run dev
+# Server started on port 3001
+
+# Second instance (in new terminal)
+npm run dev
+# Port 3001 is in use, trying 3002
+# Server started on port 3002
+```
+
+**Configuration:**
+- Default port still controlled by `PORT` environment variable in `.env`
+- Automatic retry only occurs when port is in use
+- Other server errors are handled normally without retry
+
+This enhancement makes local development smoother by eliminating common port conflict issues when running multiple server instances for testing or development purposes.
+
 ## Release v4.9.0
 
 ### Type System Improvements & Code Quality

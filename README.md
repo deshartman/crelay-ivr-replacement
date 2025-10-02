@@ -112,6 +112,8 @@ npm start
 
 4. Ensure the server is running on port 3001 (or configured port in `.env`).
 
+**Note:** If the configured port is already in use, the server will automatically retry on the next available port (e.g., 3002, 3003, etc.). This allows running multiple server instances simultaneously for testing and development.
+
 5. Optionally, expose the server using ngrok:
 ```bash
 ngrok http --domain server-yourdomain.ngrok.dev 3001
