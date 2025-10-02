@@ -44,7 +44,9 @@ dotenv.config();
 const app = express() as unknown as ExpressWSApplication;
 const PORT = process.env.PORT || 3000;
 let serverBaseUrl = process.env.SERVER_BASE_URL || "localhost"; // Store server URL
-const wsInstance = expressWs(app);     // Initialize express-ws
+
+// Initialize express-ws (adds app.ws() method and modifies app.listen())
+const wsInstance = expressWs(app);
 
 app.use(express.urlencoded({ extended: true }));    // For Twilio url encoded body
 app.use(express.json());    // For JSON payloads
@@ -60,8 +62,11 @@ let parameterDataMap = new Map<string, { requestData: any }>();
 let twilioService: TwilioService;
 let cachedAssetsService: CachedAssetsService | null = null;
 
-// Initialize CachedAssetsService and TwilioService
-(async () => {
+/**
+ * Initialize all required services before starting the server.
+ * This ensures services are ready before accepting any connections.
+ */
+async function initializeServices(): Promise<void> {
     try {
         // Initialize CachedAssetsService first (self-contained, no dependencies)
         cachedAssetsService = new CachedAssetsService();
@@ -74,13 +79,14 @@ let cachedAssetsService: CachedAssetsService | null = null;
         logOut('Server', 'TwilioService initialized successfully');
     } catch (error) {
         logError('Server', `Failed to initialize services: ${error instanceof Error ? error.message : String(error)}`);
+        throw error;
     }
-})();
+}
 
 /****************************************************
- * 
+ *
  * Web Socket Endpoints
- * 
+ *
  ****************************************************/
 
 /**
@@ -413,40 +419,59 @@ app.post('/updateResponseService', async (req: express.Request, res: express.Res
 });
 
 /****************************************************
- * 
+ *
  * Web Server
- * 
+ *
  ****************************************************/
 
 /**
- * Server initialization and port management.
- * Attempts to start the server on the configured port (from environment or default 3000).
+ * Server port binding with automatic retry on next port if in use.
  * If the port is in use, incrementally tries the next port number.
- * 
+ *
  * @function startServer
- * @returns {http.Server} Express server instance
+ * @param {number} port - The port number to attempt binding to
  * @throws {Error} If server fails to start for reasons other than port in use
  */
-let currentPort = Number(PORT);
-
 const startServer = (port: number): void => {
-    // logOut('Server', `Starting server on port ${port}`);
-    const server = app.listen(port);
+    let currentPort = port;
 
-    server.on('error', (error: NodeJS.ErrnoException) => {     // Server emits events for errors
+    // Get the WebSocketServer instance and attach error handler for port retry
+    const wss = wsInstance.getWss();
+    wss.on('error', (error: NodeJS.ErrnoException) => {
         if (error.code === 'EADDRINUSE') {
-            server.close();
-            logOut('Server', `Port ${port} is in use, trying ${port + 1}`);
-            startServer(port + 1);
+            currentPort++;
+            logOut('Server', `Port ${currentPort - 1} is in use, trying ${currentPort}`);
+            server.listen(currentPort);
         } else {
-            logError('Server', `Failed to start server: ${error.message}`);
+            logError('Server', `WebSocket server error: ${error.message}`);
             throw error;
         }
     });
 
-    server.on('listening', () => {
-        logOut('Server', `Server started on port ${port}`);
-    });
+    // HTTP server error handler for non-EADDRINUSE errors only
+    const server = app.listen(currentPort)
+        .on('error', (error: NodeJS.ErrnoException) => {
+            // Only handle errors that are NOT EADDRINUSE (those are handled by wss)
+            if (error.code !== 'EADDRINUSE') {
+                logError('Server', `HTTP server error: ${error.message}`);
+                throw error;
+            }
+        })
+        .on('listening', () => {
+            logOut('Server', `Server started on port ${currentPort}`);
+        });
 };
 
-startServer(currentPort);
+(async () => {
+    try {
+        // Initialize services first
+        await initializeServices();
+
+        // Then start the server with port retry logic
+        const currentPort = Number(PORT);
+        startServer(currentPort);
+    } catch (error) {
+        logError('Server', `Fatal error during startup: ${error instanceof Error ? error.message : String(error)}`);
+        process.exit(1);
+    }
+})();
