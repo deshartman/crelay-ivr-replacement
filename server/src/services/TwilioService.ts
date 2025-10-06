@@ -67,13 +67,13 @@ class TwilioService extends EventEmitter {
      * @param {string} serverBaseUrl - Base URL for the Conversation Relay WebSocket server (without wss:// prefix)
      * @param {string} toNumber - The destination phone number in E.164 format
      * @param {CachedAssetsService} cachedAssetsService - Service for accessing configuration
-     * @param {string} callReference - Unique reference ID for the customer
+     * @param {Record<string, string>} parameters - Optional parameters to pass to Conversation Relay
      * @returns {Promise<any>} The Twilio call object if successful
      * @throws {Error} If the call cannot be initiated or other Twilio API errors occur
      */
-    async makeOutboundCall(serverBaseUrl: string, toNumber: string, cachedAssetsService: CachedAssetsService, callReference: string = ""): Promise<any> {
+    async makeOutboundCall(serverBaseUrl: string, toNumber: string, cachedAssetsService: CachedAssetsService, parameters?: Record<string, string>): Promise<any> {
         try {
-            const conversationRelay = await this.connectConversationRelay(serverBaseUrl, cachedAssetsService, callReference);
+            const conversationRelay = await this.connectConversationRelay(serverBaseUrl, cachedAssetsService, parameters);
 
             if (!conversationRelay) {
                 throw new Error('Failed to generate TwiML for conversation relay');
@@ -125,12 +125,12 @@ class TwilioService extends EventEmitter {
      *
      * @param {string} serverBaseUrl - Base URL for the Conversation Relay WebSocket server (without wss:// prefix)
      * @param {CachedAssetsService} cachedAssetsService - Service for accessing configuration
-     * @param {string} callReference - Unique reference ID for the customer
+     * @param {Record<string, string>} parameters - Optional parameters to pass to Conversation Relay (e.g., callReference, contextKey, manifestKey)
      * @returns {Promise<twilio.twiml.VoiceResponse|null>} The TwiML response object if successful, null if generation fails
      */
-    async connectConversationRelay(serverBaseUrl: string, cachedAssetsService: CachedAssetsService, callReference: string = ""): Promise<twilio.twiml.VoiceResponse | null> {
+    async connectConversationRelay(serverBaseUrl: string, cachedAssetsService: CachedAssetsService, parameters?: Record<string, string>): Promise<twilio.twiml.VoiceResponse | null> {
         try {
-            logOut('TwilioService', `Generating TwiML for call with callReference: ${callReference}`);
+            logOut('TwilioService', `Generating TwiML for call with parameters: ${JSON.stringify(parameters || {})}`);
 
             // Get configuration from CachedAssetsService
             const config = cachedAssetsService.getConversationRelayConfig();
@@ -164,10 +164,15 @@ class TwilioService extends EventEmitter {
                 });
             }
 
-            conversationRelay.parameter({
-                name: 'callReference',
-                value: callReference
-            });
+            // Add all parameters dynamically
+            if (parameters) {
+                Object.entries(parameters).forEach(([name, value]) => {
+                    conversationRelay.parameter({
+                        name,
+                        value
+                    });
+                });
+            }
 
             // logOut('TwilioService', `Generated TwiML using Helper for call: ${response.toString()}`);
 
