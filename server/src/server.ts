@@ -9,6 +9,7 @@
 import dotenv from 'dotenv';
 import express from 'express';
 import expressWs, { Application as ExpressWSApplication } from 'express-ws';
+import { randomUUID } from 'crypto';
 import { logOut, logError } from './utils/logger.js';
 
 // Import the services
@@ -16,7 +17,9 @@ import { ConversationRelayService } from './services/ConversationRelayService.js
 import { OpenAIResponseService } from './services/OpenAIResponseService.js';
 import { TwilioService } from './services/TwilioService.js';
 import { CachedAssetsService } from './services/CachedAssetsService.js';
+import { IvrMappingService } from './services/IvrMappingService.js';
 import type { IncomingMessage, OutgoingMessage, SessionData } from './interfaces/ConversationRelay.js';
+import type { IvrMappingRequest } from './interfaces/IvrMappingService.js';
 
 
 
@@ -61,6 +64,7 @@ let wsSessionsMap = new Map<string, WSSession>();
 let parameterDataMap = new Map<string, { requestData: any }>();
 let twilioService: TwilioService;
 let cachedAssetsService: CachedAssetsService | null = null;
+let ivrMappingJobs = new Map<string, IvrMappingService>();
 
 /**
  * Initialize all required services before starting the server.
@@ -205,6 +209,20 @@ app.ws('/conversation-relay', (ws: any, req: express.Request) => {
     // Handle client disconnection
     ws.on('close', () => {
         logOut('WS', 'Client ws disconnected');
+
+        // Check if this is an IVR mapping job call
+        const callReference = sessionData.setupData?.customParameters?.callReference;
+        if (callReference && callReference.startsWith('ivr-job-')) {
+            // Extract jobId from callReference (format: "ivr-job-{jobId}")
+            const jobId = callReference.substring(8); // Remove "ivr-job-" prefix
+            const ivrMappingService = ivrMappingJobs.get(jobId);
+
+            if (ivrMappingService) {
+                logOut('WS', `Notifying IVR mapping job ${jobId} that call has completed`);
+                ivrMappingService.notifyCallComplete(sessionData);
+            }
+        }
+
         // Clean up ConversationRelay and its listeners
         if (conversationRelaySession) {
             conversationRelaySession.cleanup();
@@ -214,6 +232,20 @@ app.ws('/conversation-relay', (ws: any, req: express.Request) => {
     // Handle errors
     ws.on('error', (error: Error) => {
         logError('WS', `WebSocket error: ${error instanceof Error ? error.message : String(error)}`);
+
+        // Check if this is an IVR mapping job call
+        const callReference = sessionData.setupData?.customParameters?.callReference;
+        if (callReference && callReference.startsWith('ivr-job-')) {
+            // Extract jobId from callReference (format: "ivr-job-{jobId}")
+            const jobId = callReference.substring(8); // Remove "ivr-job-" prefix
+            const ivrMappingService = ivrMappingJobs.get(jobId);
+
+            if (ivrMappingService) {
+                logOut('WS', `Notifying IVR mapping job ${jobId} that call ended with error`);
+                ivrMappingService.notifyCallComplete(sessionData);
+            }
+        }
+
         // Clean up ConversationRelay and its listeners
         if (conversationRelaySession) {
             conversationRelaySession.cleanup();
@@ -414,6 +446,250 @@ app.post('/updateResponseService', async (req: express.Request, res: express.Res
         res.json({ success: true });
     } catch (error) {
         logError('Server', `Error updating response service: ${error instanceof Error ? error.message : String(error)}`);
+        res.status(500).json({ success: false, error: error instanceof Error ? error.message : String(error) });
+    }
+});
+
+/**
+ * Maps IVR data through iterative exploration and generates simulation context.
+ * Returns immediately with a jobId for async processing.
+ *
+ * This is the process the IVR Mapping service follows:
+ *
+ * 1. Receive IVR mapping data including phone number and optional context/manifest keys.
+ * 2. Initialize or reference CachedAssetsService to get pre-loaded assets.
+ * 3. Read/create IVR mapping file to determine the context for the next iteration.
+ * 4. Update active context and manifest in active assets.
+ * 5. Initiate outbound call to walk the IVR based on active context.
+ * 6. Evaluate outcome and decide: Continue (loop to step 3), Need info, Complete (go to 7), or Error.
+ * 7. Analyze the IVR Mapping file and build a new context to simulate the IVR.
+ * 8. Return details of the IVR mapping and generated context.
+ *
+ * @endpoint POST /mapIvr
+ *
+ * @param {Object} req.body - IVR mapping request data
+ * @param {string} req.body.phoneNumber - [REQUIRED] Phone number to call
+ * @param {string} req.body.callReference - [OPTIONAL] Unique reference for the call
+ * @param {string} req.body.contextKey - [OPTIONAL] Context key for initial exploration
+ * @param {string} req.body.manifestKey - [OPTIONAL] Manifest key for tools
+ * @param {string} req.body.callbackUrl - [OPTIONAL] Webhook URL for completion notification
+ * @param {Object} req.body.ivrData - [OPTIONAL] Additional IVR data to process
+ *
+ * @returns {Object} response
+ * @returns {boolean} response.success - Success status
+ * @returns {string} response.jobId - Job identifier for status polling
+ * @returns {string} response.message - Status message
+ */
+app.post('/mapIvr', (req: express.Request, res: express.Response) => {
+    try {
+        logOut('Server', `/mapIvr: Received IVR mapping request`);
+
+        // Generate jobId
+        const jobId = randomUUID();
+
+        // Create new IvrMappingService instance for this job
+        const ivrMappingService = new IvrMappingService(jobId, twilioService, cachedAssetsService!, serverBaseUrl);
+        ivrMappingJobs.set(jobId, ivrMappingService);
+
+        const request: IvrMappingRequest = {
+            phoneNumber: req.body.phoneNumber,
+            callbackUrl: req.body.callbackUrl
+        };
+
+        // Start the mapping process (async, doesn't block)
+        ivrMappingService.startMapping(request);
+
+        res.status(202).json({
+            success: true,
+            jobId,
+            message: 'IVR mapping job created successfully'
+        });
+    } catch (error) {
+        logError('Server', `/mapIvr: Error creating job: ${error instanceof Error ? error.message : String(error)}`);
+        res.status(500).json({ success: false, error: error instanceof Error ? error.message : String(error) });
+    }
+});
+
+/**
+ * Gets the status and results of an IVR mapping job.
+ *
+ * @endpoint GET /mapIvr/:jobId
+ * @param {string} req.params.jobId - Job identifier
+ * @returns {Object} response - Job status and results
+ */
+app.get('/mapIvr/:jobId', (req: express.Request, res: express.Response) => {
+    try {
+        const { jobId } = req.params;
+        const ivrMappingService = ivrMappingJobs.get(jobId);
+
+        if (!ivrMappingService) {
+            res.status(404).json({ success: false, error: `Job ${jobId} not found` });
+            return;
+        }
+
+        // Clean up expired job
+        if (ivrMappingService.isExpired()) {
+            ivrMappingJobs.delete(jobId);
+            res.status(410).json({ success: false, error: `Job ${jobId} has expired` });
+            return;
+        }
+
+        const status = ivrMappingService.getJobStatus();
+        res.json(status);
+    } catch (error) {
+        logError('Server', `/mapIvr/:jobId: Error: ${error instanceof Error ? error.message : String(error)}`);
+        res.status(500).json({ success: false, error: error instanceof Error ? error.message : String(error) });
+    }
+});
+
+/**
+ * Gets just the generated context for an IVR mapping job.
+ *
+ * @endpoint GET /mapIvr/:jobId/context
+ * @param {string} req.params.jobId - Job identifier
+ * @returns {string} response - Generated context text
+ */
+app.get('/mapIvr/:jobId/context', (req: express.Request, res: express.Response) => {
+    try {
+        const { jobId } = req.params;
+        const ivrMappingService = ivrMappingJobs.get(jobId);
+
+        if (!ivrMappingService) {
+            res.status(404).json({ success: false, error: `Job ${jobId} not found` });
+            return;
+        }
+
+        const jobStatus = ivrMappingService.getJobStatus();
+
+        // Check job status
+        if (jobStatus.status === 'pending' || jobStatus.status === 'in-progress') {
+            res.status(202).json({ success: false, error: 'Job still in progress', status: jobStatus.status });
+            return;
+        }
+
+        if (jobStatus.status === 'failed') {
+            res.status(500).json({ success: false, error: jobStatus.error || 'Job failed' });
+            return;
+        }
+
+        if (jobStatus.status === 'cancelled') {
+            res.status(410).json({ success: false, error: 'Job was cancelled' });
+            return;
+        }
+
+        const context = ivrMappingService.getJobContext();
+
+        if (!context) {
+            res.status(404).json({ success: false, error: `Context not found for job ${jobId}` });
+            return;
+        }
+
+        res.send(context);
+    } catch (error) {
+        logError('Server', `/mapIvr/:jobId/context: Error: ${error instanceof Error ? error.message : String(error)}`);
+        res.status(500).json({ success: false, error: error instanceof Error ? error.message : String(error) });
+    }
+});
+
+/**
+ * Gets just the IVR mapping data for a job.
+ *
+ * @endpoint GET /mapIvr/:jobId/mapping
+ * @param {string} req.params.jobId - Job identifier
+ * @returns {Object} response - IVR mapping data
+ */
+app.get('/mapIvr/:jobId/mapping', (req: express.Request, res: express.Response) => {
+    try {
+        const { jobId } = req.params;
+        const ivrMappingService = ivrMappingJobs.get(jobId);
+
+        if (!ivrMappingService) {
+            res.status(404).json({ success: false, error: `Job ${jobId} not found` });
+            return;
+        }
+
+        const jobStatus = ivrMappingService.getJobStatus();
+
+        // Check job status
+        if (jobStatus.status === 'pending' || jobStatus.status === 'in-progress') {
+            res.status(202).json({ success: false, error: 'Job still in progress', status: jobStatus.status });
+            return;
+        }
+
+        if (jobStatus.status === 'failed') {
+            res.status(500).json({ success: false, error: jobStatus.error || 'Job failed' });
+            return;
+        }
+
+        if (jobStatus.status === 'cancelled') {
+            res.status(410).json({ success: false, error: 'Job was cancelled' });
+            return;
+        }
+
+        const mapping = ivrMappingService.getJobMapping();
+
+        if (!mapping) {
+            res.status(404).json({ success: false, error: `Mapping not found for job ${jobId}` });
+            return;
+        }
+
+        res.json(mapping);
+    } catch (error) {
+        logError('Server', `/mapIvr/:jobId/mapping: Error: ${error instanceof Error ? error.message : String(error)}`);
+        res.status(500).json({ success: false, error: error instanceof Error ? error.message : String(error) });
+    }
+});
+
+/**
+ * Cancels a running IVR mapping job.
+ *
+ * @endpoint POST /mapIvr/:jobId/cancel
+ * @param {string} req.params.jobId - Job identifier
+ * @returns {Object} response - Cancellation confirmation
+ */
+app.post('/mapIvr/:jobId/cancel', (req: express.Request, res: express.Response) => {
+    try {
+        const { jobId } = req.params;
+        const ivrMappingService = ivrMappingJobs.get(jobId);
+
+        if (!ivrMappingService) {
+            res.status(404).json({
+                success: false,
+                error: `Job ${jobId} not found`
+            });
+            return;
+        }
+
+        const cancelled = ivrMappingService.cancelJob();
+
+        if (!cancelled) {
+            res.status(400).json({
+                success: false,
+                error: 'Job cannot be cancelled (already completed/failed/cancelled)'
+            });
+            return;
+        }
+
+        res.json({
+            success: true,
+            message: `Job ${jobId} cancelled successfully`,
+            jobId
+        });
+    } catch (error) {
+        logError('Server', `/mapIvr/:jobId/cancel: Error: ${error instanceof Error ? error.message : String(error)}`);
+        res.status(500).json({ success: false, error: error instanceof Error ? error.message : String(error) });
+    }
+});
+
+/**
+ * Webhook endpoint for IVR mapping status callbacks
+ */
+app.post('/statusCallback', (req: express.Request, res: express.Response) => {
+    try {
+        logOut('StatusCallback', `Received webhook: ${JSON.stringify(req.body, null, 2)}`);
+        res.status(200).json({ success: true, message: 'Callback received' });
+    } catch (error) {
+        logError('StatusCallback', `Error: ${error instanceof Error ? error.message : String(error)}`);
         res.status(500).json({ success: false, error: error instanceof Error ? error.message : String(error) });
     }
 });

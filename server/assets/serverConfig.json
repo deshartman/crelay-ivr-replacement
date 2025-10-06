@@ -1,7 +1,7 @@
 {
     "ConversationRelay": {
         "Configuration": {
-            "welcomeGreeting": "Hello there! How can I assist you today?",
+            "welcomeGreeting": "",
             "welcomeGreetingInterruptible": "any",
             "language": "en-AU",
             "hints": "",
@@ -45,7 +45,7 @@
             ]
         },
         "SilenceDetection": {
-            "enabled": true,
+            "enabled": false,
             "secondsThreshold": 20,
             "messages": [
                 "Still there?",
@@ -54,13 +54,13 @@
         }
     },
     "AssetLoader": {
-        "activeContextKey": "defaultContext",
-        "activeManifestKey": "defaultToolManifest",
+        "activeContextKey": "ivrWalkContext",
+        "activeManifestKey": "ivrWalkToolManifest",
         "assetLoaderType": "file"
     },
     "Server": {
         "ListenMode": {
-            "enabled": false
+            "enabled": true
         }
     }
 }

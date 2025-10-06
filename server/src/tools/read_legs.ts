@@ -3,12 +3,16 @@ import fs from 'fs/promises';
 import path from 'path';
 
 /**
- * Interface for menu sequence objects
+ * Interface for menu step data structure
  */
-interface MenuInfo {
-    menuId: string;
+interface MenuStepData {
+    menuPath: string;
+    timestamp: string;
     audioTranscript: string;
     availableOptions: string[];
+    dtmfSent?: string;
+    outcome: string;
+    status: 'COMPLETED' | 'IN_PROGRESS' | 'FAILED';
 }
 
 /**
@@ -17,20 +21,8 @@ interface MenuInfo {
 interface ReadLegsArguments {
     filterStatus?: 'COMPLETED' | 'IN_PROGRESS' | 'FAILED' | 'ALL';
     targetPath?: string;
+    inMemoryData?: MenuStepData[];
     [key: string]: any;
-}
-
-/**
- * Interface for leg data structure
- */
-interface LegData {
-    legNumber: number;
-    path: string;
-    explorationDate: string;
-    menuSequence: MenuInfo[];
-    finalOutcome: string;
-    status: 'COMPLETED' | 'IN_PROGRESS' | 'FAILED';
-    nextTarget?: string;
 }
 
 /**
@@ -39,8 +31,8 @@ interface LegData {
 interface ReadLegsResponse {
     success: boolean;
     message: string;
-    totalLegs: number;
-    legs: LegData[];
+    totalSteps: number;
+    steps: MenuStepData[];
     completedPaths?: string[];
     nextSuggestedPath?: string;
 }
@@ -59,53 +51,60 @@ export default async function (functionArguments: ReadLegsArguments): Promise<Re
         // Set default filter
         const filterStatus = functionArguments.filterStatus || 'ALL';
 
-        // Construct path to legs data file
-        const dataDir = path.join(process.cwd(), 'server', 'assets', 'legs');
-        const dataFilePath = path.join(dataDir, 'exploration_legs.json');
+        let allSteps: MenuStepData[] = [];
 
-        let allLegs: LegData[] = [];
+        // Check if in-memory data is provided
+        if (functionArguments.inMemoryData && Array.isArray(functionArguments.inMemoryData)) {
+            logOut('ReadLegsTool', 'Using in-memory data');
+            allSteps = functionArguments.inMemoryData;
+        } else {
+            // Read from file
+            const dataDir = path.join(process.cwd(), 'assets', 'legs');
+            const dataFilePath = path.join(dataDir, 'IvrMapping.json');
 
-        try {
-            const fileContent = await fs.readFile(dataFilePath, 'utf-8');
-            allLegs = JSON.parse(fileContent);
-        } catch (error) {
-            // File doesn't exist or is invalid
-            logOut('ReadLegsTool', 'No existing exploration legs file found');
-            return {
-                success: true,
-                message: 'No exploration data found. This appears to be a fresh exploration session.',
-                totalLegs: 0,
-                legs: [],
-                completedPaths: [],
-                nextSuggestedPath: '1'
-            };
+            try {
+                const fileContent = await fs.readFile(dataFilePath, 'utf-8');
+                allSteps = JSON.parse(fileContent);
+                logOut('ReadLegsTool', `Loaded ${allSteps.length} steps from file`);
+            } catch (error) {
+                // File doesn't exist or is invalid
+                logOut('ReadLegsTool', 'No existing exploration file found');
+                return {
+                    success: true,
+                    message: 'No exploration data found. This appears to be a fresh exploration session.',
+                    totalSteps: 0,
+                    steps: [],
+                    completedPaths: [],
+                    nextSuggestedPath: 'root'
+                };
+            }
         }
 
         // Filter by status if specified
-        let filteredLegs = allLegs;
+        let filteredSteps = allSteps;
         if (filterStatus !== 'ALL') {
-            filteredLegs = allLegs.filter(leg => leg.status === filterStatus);
+            filteredSteps = allSteps.filter(step => step.status === filterStatus);
         }
 
         // Filter by specific path if requested
         if (functionArguments.targetPath) {
-            filteredLegs = filteredLegs.filter(leg => leg.path === functionArguments.targetPath);
+            filteredSteps = filteredSteps.filter(step => step.menuPath === functionArguments.targetPath);
         }
 
-        // Sort by leg number for consistent ordering
-        filteredLegs.sort((a, b) => a.legNumber - b.legNumber);
+        // Sort by menuPath for consistent ordering
+        filteredSteps.sort((a, b) => a.menuPath.localeCompare(b.menuPath));
 
         // Generate analysis for navigation assistance
-        const completedPaths = allLegs
-            .filter(leg => leg.status === 'COMPLETED')
-            .map(leg => leg.path);
+        const completedPaths = allSteps
+            .filter(step => step.status === 'COMPLETED')
+            .map(step => step.menuPath);
 
         // Find next suggested path based on systematic exploration
         let nextSuggestedPath: string | undefined;
-        const inProgressLeg = allLegs.find(leg => leg.status === 'IN_PROGRESS');
+        const inProgressStep = allSteps.find(step => step.status === 'IN_PROGRESS');
 
-        if (inProgressLeg && inProgressLeg.nextTarget) {
-            nextSuggestedPath = inProgressLeg.nextTarget;
+        if (inProgressStep) {
+            nextSuggestedPath = inProgressStep.menuPath;
         } else {
             // Generate next path based on completed paths using depth-first strategy
             nextSuggestedPath = generateNextPath(completedPaths);
@@ -113,9 +112,9 @@ export default async function (functionArguments: ReadLegsArguments): Promise<Re
 
         const response: ReadLegsResponse = {
             success: true,
-            message: `Successfully loaded ${filteredLegs.length} exploration legs (${completedPaths.length} completed paths)`,
-            totalLegs: filteredLegs.length,
-            legs: filteredLegs,
+            message: `Successfully loaded ${filteredSteps.length} menu steps (${completedPaths.length} completed paths)`,
+            totalSteps: filteredSteps.length,
+            steps: filteredSteps,
             completedPaths,
             nextSuggestedPath
         };
@@ -127,8 +126,8 @@ export default async function (functionArguments: ReadLegsArguments): Promise<Re
         const errorResponse: ReadLegsResponse = {
             success: false,
             message: `Failed to load exploration data: ${error instanceof Error ? error.message : String(error)}`,
-            totalLegs: 0,
-            legs: []
+            totalSteps: 0,
+            steps: []
         };
         logError('ReadLegsTool', `Read legs error: ${JSON.stringify(errorResponse)}`);
         return errorResponse;
@@ -137,15 +136,17 @@ export default async function (functionArguments: ReadLegsArguments): Promise<Re
 
 /**
  * Generates the next path to explore based on depth-first traversal strategy
- * Always explores option 1 first, then backtracks to explore option 2, etc.
+ * Always explores root first, then numeric paths (1, 2, 3..., then 1-1, 1-2, etc.)
  */
 function generateNextPath(completedPaths: string[]): string {
     if (completedPaths.length === 0) {
-        return '1'; // Start with option 1
+        return 'root'; // Start with root
     }
 
-    // Sort paths to ensure consistent ordering
-    const sortedPaths = completedPaths.sort();
+    // Check if root is completed
+    if (!completedPaths.includes('root')) {
+        return 'root';
+    }
 
     // Find the next logical path using depth-first strategy
     // Start with single digit paths (1, 2, 3...)

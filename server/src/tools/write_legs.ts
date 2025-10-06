@@ -85,7 +85,7 @@ export default async function (functionArguments: WriteLegsArguments): Promise<W
         };
 
         // Read existing data or create new array
-        const dataFilePath = path.join(dataDir, 'menu_steps.json');
+        const dataFilePath = path.join(dataDir, 'IvrMapping.json');
         console.log('📖 WriteLegsTool: Reading existing data from:', dataFilePath);
         let existingData: MenuStepData[] = [];
 
