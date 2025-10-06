@@ -909,17 +909,22 @@ POST /outboundCall
 
 ### Request Format
 
+All properties except `phoneNumber` are passed as Conversation Relay parameters and accessible via `message.customParameters` in the WebSocket session.
+
 ```typescript
 interface RequestData {
   properties: {
-    phoneNumber: string;      // [REQUIRED] Destination phone number in E.164 format
-    callReference: string;    // [OPTIONAL] Unique reference to associate with the call
-    firstname?: string;       // [OPTIONAL] Additional parameter data
-    lastname?: string;        // [OPTIONAL] Additional parameter data
-    [key: string]: any;       // Other optional parameters
+    phoneNumber: string;      // [REQUIRED] Destination phone number in E.164 format (extracted for routing)
+    [key: string]: any;       // [OPTIONAL] All other fields passed as Conversation Relay parameters
   }
 }
 ```
+
+**Common Parameters:**
+- `callReference` - Unique reference to associate with the call
+- `contextKey` - Select specific conversation context for this call
+- `manifestKey` - Select specific tool manifest for this call
+- Any custom fields - Available in WebSocket session via `message.customParameters`
 
 ### Example Usage
 

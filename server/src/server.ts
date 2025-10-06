@@ -307,10 +307,6 @@ app.get('/', (req: express.Request, res: express.Response) => {
 app.post('/outboundCall', async (req: express.Request, res: express.Response) => {
     const requestData: RequestData = req.body;
 
-    if (requestData.properties?.callReference) {
-        parameterDataMap.set(requestData.properties.callReference, { requestData: requestData.properties });
-    }
-
     try {
         logOut('Server', `/outboundCall: Initiating outbound call`);
 
@@ -318,11 +314,19 @@ app.post('/outboundCall', async (req: express.Request, res: express.Response) =>
             throw new Error('Phone number is required');
         }
 
+        // Extract phoneNumber, pass rest as parameters
+        const { phoneNumber, ...parameters } = requestData.properties;
+
+        // Store in parameterDataMap if callReference provided
+        if (parameters.callReference) {
+            parameterDataMap.set(parameters.callReference, { requestData: requestData.properties });
+        }
+
         const response = await twilioService.makeOutboundCall(
             serverBaseUrl,
-            requestData.properties.phoneNumber,
+            phoneNumber,
             cachedAssetsService!,
-            requestData.properties.callReference || ""
+            parameters
         );
 
         logOut('Server', `/outboundCall: Call initiated with call SID: ${response}`);
@@ -336,7 +340,7 @@ app.post('/outboundCall', async (req: express.Request, res: express.Response) =>
 
 /**
  * Initiates a connection to the Conversation Relay service.
- * 
+ *
  * @name POST /connectConversationRelay
  * @function
  * @async
@@ -347,7 +351,10 @@ app.post('/outboundCall', async (req: express.Request, res: express.Response) =>
 app.post('/connectConversationRelay', async (req: express.Request, res: express.Response) => {
     logOut('Server', `Received request to connect to Conversation Relay`);
 
-    const voiceResponse = await twilioService.connectConversationRelay(serverBaseUrl, cachedAssetsService!);
+    // Accept optional parameters from request body
+    const parameters = req.body.parameters || {};
+
+    const voiceResponse = await twilioService.connectConversationRelay(serverBaseUrl, cachedAssetsService!, parameters);
     if (voiceResponse) {
         res.send(voiceResponse.toString());
     } else {

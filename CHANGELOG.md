@@ -1,5 +1,49 @@
 # Changelog
 
+## Release v4.9.2
+
+### Generic Parameter Passing
+
+This release removes hardcoded parameter handling in TwilioService, enabling flexible parameter passing to Conversation Relay sessions.
+
+#### 🎯 Key Changes
+
+**Generic Parameters:**
+- `TwilioService.connectConversationRelay()` now accepts `parameters?: Record<string, string>` instead of hardcoded `callReference`
+- `/outboundCall` endpoint extracts `phoneNumber` for routing, passes all other properties as parameters
+- `/connectConversationRelay` endpoint accepts optional parameters from request body
+- Foundation for dynamic context/manifest selection per Conversation Relay instance
+
+**Technical Implementation:**
+- Replaced hardcoded TwiML parameter with dynamic loop: `Object.entries(parameters).forEach()`
+- Parameters available in WebSocket setup message via `message.customParameters`
+- Enables arbitrary key-value pairs to be passed through to Conversation Relay
+
+#### ✅ Benefits
+
+**Flexibility:**
+- Pass any custom data to Conversation Relay without code changes
+- Support for dynamic context/manifest selection via `contextKey`/`manifestKey` parameters
+- Future-proof parameter handling for new use cases
+
+**Usage Example:**
+```bash
+curl -X POST 'https://server.com/outboundCall' \
+  --header 'Content-Type: application/json' \
+  --data-raw '{
+    "properties": {
+      "phoneNumber": "+1234567890",
+      "callReference": "abc123",
+      "contextKey": "supportContext",
+      "customerId": "12345"
+    }
+  }'
+```
+
+All properties except `phoneNumber` are passed as Conversation Relay parameters.
+
+---
+
 ## Release v4.9.1
 
 ### Automatic Port Selection Enhancement
