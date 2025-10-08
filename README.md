@@ -899,6 +899,75 @@ The server includes several built-in tools for call management:
 5. `switch-language` - Changes TTS and/or transcription languages
 6. `play-media` - Plays audio media from URLs
 
+## Conversation Endpoint (Messaging/Chat)
+
+The `/conversation` endpoint provides a simple HTTP POST interface for messaging and chat applications, enabling the same backend Response Service to be used for both voice (Conversation Relay) and text-based conversations.
+
+**🎯 Key Features:**
+- **Unified Architecture**: Same OpenAIResponseService powers both voice and text conversations
+- **HTTP POST Interface**: Simple JSON request/response for messaging applications
+- **Session Management**: Stateful conversations with automatic GUID-based session tracking
+- **Shared Configuration**: Same context, manifest, and tools work across both channels
+- **Multi-Turn Conversations**: Full conversation history maintained across requests
+
+**✅ Benefits:**
+- Build messaging applications without WebSocket complexity
+- Test conversation flows using simple HTTP requests
+- Deploy same AI logic to multiple communication channels (voice + text)
+- Consistent AI behavior across voice calls and text conversations
+- Same tool execution (send-sms, etc.) works in both voice and messaging contexts
+
+```
+POST /conversation
+```
+
+### Request Format
+
+```typescript
+interface ConversationRequest {
+  sessionId?: string;      // [OPTIONAL] Session ID for continuing conversation
+  message: string;         // [REQUIRED] Message to send to OpenAI
+  role?: 'user' | 'system'; // [OPTIONAL] Message role (defaults to 'user')
+}
+```
+
+### Response Format
+
+```typescript
+interface ConversationResponse {
+  success: boolean;
+  sessionId: string;       // Session ID for conversation continuity
+  response: string;        // OpenAI's response text
+  error?: string;          // Error message if request failed
+}
+```
+
+### Example Usage
+
+```bash
+# First message (creates new session)
+curl -X POST http://localhost:3000/conversation \
+  -H "Content-Type: application/json" \
+  -d '{"message": "Hello, I need help"}'
+
+# Follow-up message (uses existing session)
+curl -X POST http://localhost:3000/conversation \
+  -H "Content-Type: application/json" \
+  -d '{
+    "sessionId": "550e8400-e29b-41d4-a716-446655440000",
+    "message": "Tell me more"
+  }'
+```
+
+### Architecture
+
+The `/conversation` endpoint shares the same underlying architecture as the `/conversation-relay` WebSocket endpoint:
+- **OpenAIResponseService**: Same response generation and tool execution
+- **CachedAssetsService**: Same context, manifest, and tool configurations
+- **Session Independence**: Voice sessions (wsSessionsMap) and messaging sessions (conversationSessionMap) are independent
+
+This unified architecture enables developers to build conversational AI applications that work seamlessly across voice and messaging channels using a single backend service.
+
 ## Outbound Calling
 
 The system supports initiating outbound calls via an API endpoint:

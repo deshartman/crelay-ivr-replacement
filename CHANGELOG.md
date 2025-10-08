@@ -1,5 +1,79 @@
 # Changelog
 
+## Release v4.9.3
+
+### Unified Response Service for Voice and Messaging
+
+This release introduces a new `/conversation` endpoint that enables the same backend Response Service to be used for both voice (Conversation Relay) and messaging applications.
+
+#### 🎯 Key Changes
+
+**New /conversation Endpoint:**
+- **HTTP POST Interface**: Simple JSON request/response endpoint for messaging applications
+- **Session Management**: Stateful conversations using session GUIDs
+- **Shared Response Service**: Uses same OpenAIResponseService as voice conversations
+- **Multi-Turn Support**: Full conversation history maintained across requests
+
+**Technical Implementation:**
+- Session storage using `conversationSessionMap` for persistent conversations
+- Automatic session creation with `crypto.randomUUID()` when no sessionId provided
+- Reuses existing session for conversation continuity when sessionId included
+- Accumulates streaming response chunks into complete response string
+- Returns: `{ success: true, sessionId: string, response: string }`
+
+#### ✅ Benefits
+
+**Unified Architecture:**
+- Same context, manifest, and tool configurations work for both voice and messaging
+- Single Response Service implementation serves multiple communication channels
+- Consistent AI behavior across voice calls and text conversations
+
+**Flexible Integration:**
+- Simple HTTP API for messaging/chat applications
+- WebSocket interface for voice applications (Conversation Relay)
+- Both interfaces share underlying OpenAI service and tool execution
+
+**Usage Examples:**
+
+**First Message (Creates Session):**
+```bash
+curl -X POST http://localhost:3000/conversation \
+  -H "Content-Type: application/json" \
+  -d '{"message": "Hello, I need help with my account"}'
+
+# Response: { "success": true, "sessionId": "abc-123-def", "response": "Hello! I'd be happy to help..." }
+```
+
+**Follow-up Message (Uses Existing Session):**
+```bash
+curl -X POST http://localhost:3000/conversation \
+  -H "Content-Type: application/json" \
+  -d '{"sessionId": "abc-123-def", "message": "What is my balance?"}'
+
+# Response: { "success": true, "sessionId": "abc-123-def", "response": "Let me check that for you..." }
+```
+
+#### 🏗️ Architecture Benefits
+
+**Code Reuse:**
+- OpenAIResponseService used by both `/conversation-relay` (WebSocket) and `/conversation` (HTTP)
+- CachedAssetsService provides same context/manifest to both endpoints
+- Tool execution works identically across both communication channels
+
+**Simplified Development:**
+- Build messaging applications without WebSocket complexity
+- Test conversation flows using simple HTTP requests
+- Deploy same AI logic to multiple communication channels
+
+**Session Independence:**
+- Voice sessions (wsSessionsMap) and messaging sessions (conversationSessionMap) are independent
+- Each communication channel maintains its own session storage
+- No conflicts between voice calls and text conversations
+
+This release enables developers to build unified conversational AI applications that work seamlessly across voice and messaging channels using a single backend service architecture.
+
+---
+
 ## Release v4.9.2
 
 ### Generic Parameter Passing

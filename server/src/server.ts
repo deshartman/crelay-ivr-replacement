@@ -62,6 +62,7 @@ app.use(express.json());    // For JSON payloads
  */
 let wsSessionsMap = new Map<string, WSSession>();
 let parameterDataMap = new Map<string, { requestData: any }>();
+let conversationSessionMap = new Map<string, OpenAIResponseService>();
 let twilioService: TwilioService;
 let cachedAssetsService: CachedAssetsService | null = null;
 let ivrMappingJobs = new Map<string, IvrMappingService>();
@@ -387,6 +388,106 @@ app.post('/twilioStatusCallback', async (req: express.Request, res: express.Resp
     }
 
     res.json({ success: true });
+});
+
+/**
+ * Endpoint for direct conversation with OpenAI without Conversation Relay.
+ * Supports multi-turn conversations through session management.
+ *
+ * @name POST /conversation
+ * @function
+ * @async
+ * @param {express.Request} req - Express request object
+ * @param {express.Response} res - Express response object
+ *
+ * Request body:
+ * @param {string} [req.body.sessionId] - Optional session ID for continuing conversation
+ * @param {string} req.body.message - Message to send to OpenAI
+ * @param {string} [req.body.role='user'] - Message role ('user' or 'system')
+ *
+ * @returns {Object} response
+ * @returns {boolean} response.success - Whether the request succeeded
+ * @returns {string} response.sessionId - Session ID for conversation continuity
+ * @returns {string} response.response - OpenAI's response text
+ * @returns {string} [response.error] - Error message if request failed
+ */
+app.post('/conversation', async (req: express.Request, res: express.Response) => {
+    try {
+        const { sessionId, message, role = 'user' } = req.body;
+
+        if (!message) {
+            res.status(400).json({ success: false, error: 'Message is required' });
+            return;
+        }
+
+        if (!cachedAssetsService) {
+            res.status(500).json({ success: false, error: 'CachedAssetsService not initialized' });
+            return;
+        }
+
+        let responseService: OpenAIResponseService;
+        let currentSessionId: string;
+
+        // Check if session exists
+        if (sessionId && conversationSessionMap.has(sessionId)) {
+            // Use existing session
+            currentSessionId = sessionId;
+            responseService = conversationSessionMap.get(sessionId)!;
+            logOut('Server', `/conversation: Using existing session ${currentSessionId}`);
+        } else {
+            // Create new session
+            currentSessionId = crypto.randomUUID();
+
+            const activeAssets = cachedAssetsService.getActiveAssets();
+
+            responseService = new OpenAIResponseService(
+                activeAssets.context,
+                activeAssets.manifest,
+                activeAssets.loadedTools,
+                activeAssets.listenMode.enabled
+            );
+
+            conversationSessionMap.set(currentSessionId, responseService);
+            logOut('Server', `/conversation: Created new session ${currentSessionId}`);
+        }
+
+        // Accumulate response content
+        let accumulatedResponse = '';
+
+        // Set up response handler to collect content
+        responseService.createResponseHandler({
+            content: (contentResponse) => {
+                if (contentResponse.type === 'text' && contentResponse.token) {
+                    accumulatedResponse += contentResponse.token;
+                }
+            },
+            toolResult: (toolResultEvent) => {
+                logOut('Server', `/conversation: Tool executed: ${toolResultEvent.toolType}`);
+            },
+            error: (error) => {
+                logError('Server', `/conversation: Error in response generation: ${error.message}`);
+            },
+            callSid: (callSid: string, responseMessage: any) => {
+                // Not used in this endpoint, but required by interface
+            }
+        });
+
+        // Generate response
+        await responseService.generateResponse(role, message);
+
+        res.json({
+            success: true,
+            sessionId: currentSessionId,
+            response: accumulatedResponse
+        });
+
+    } catch (error) {
+        logError('Server', `/conversation: Error processing request: ${error instanceof Error ? error.message : String(error)}`);
+        res.status(500).json({
+            success: false,
+            error: error instanceof Error ? error.message : String(error)
+        });
+    }
 });
 
 app.post('/updateResponseService', async (req: express.Request, res: express.Response) => {
