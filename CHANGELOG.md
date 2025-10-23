@@ -1,5 +1,39 @@
 # Changelog
 
+## Release v4.9.4
+
+### TwiML Generation Fix
+
+This release fixes a critical TwiML parsing error that occurred when making calls through Twilio's Conversation Relay.
+
+#### 🐛 Bug Fix
+
+**Invalid TwiML Attributes:**
+- **Fixed**: "Attribute 'parameters' is not allowed to appear in element 'ConversationRelay'" error
+- **Fixed**: "Attribute 'languages' is not allowed to appear in element 'ConversationRelay'" error
+- **Root Cause**: `languages` and `parameters` arrays from serverConfig.json were being spread as XML attributes on `<ConversationRelay>` element
+- **Solution**: Extract and exclude `languages` and `parameters` from config before spreading attributes
+
+**Technical Implementation:**
+- Modified `TwilioService.connectConversationRelay()` to destructure and remove `languages` and `parameters` from filtered config
+- These properties are now only added as child `<Language>` and `<Parameter>` elements (as intended)
+- Prevents `[object Object]` serialization in XML attributes
+
+#### ✅ Benefits
+
+**Correct TwiML Generation:**
+- `<ConversationRelay>` element now only contains valid TwiML attributes
+- Languages configured via child `<Language>` elements only
+- Parameters configured via child `<Parameter>` elements only
+- No more TwiML parsing errors when initiating calls
+
+**Files Modified:**
+- `server/src/services/TwilioService.ts` - Fixed attribute spreading logic (lines 149-151)
+
+This fix ensures calls can be successfully initiated without TwiML parsing errors from Twilio.
+
+---
+
 ## Release v4.9.3
 
 ### Unified Response Service for Voice and Messaging

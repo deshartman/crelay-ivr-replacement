@@ -1,7 +1,7 @@
 {
     "ConversationRelay": {
         "Configuration": {
-            "welcomeGreeting": "Hello there! How can I assist you today?",
+            "welcomeGreeting": "Hello there! How can I assist you with Conversation Relay today?",
             "welcomeGreetingInterruptible": "any",
             "language": "en-AU",
             "hints": "",

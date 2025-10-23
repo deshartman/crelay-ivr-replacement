@@ -145,9 +145,14 @@ class TwilioService extends EventEmitter {
             const response: VoiceResponse = new twilio.twiml.VoiceResponse();
             const connect: VoiceResponse.Connect = response.connect();
             const filteredConfig = this.filterUnsetValues(config);
+
+            // Extract languages and parameters before spreading config
+            // These should only be child elements, not attributes
+            const { languages: configLanguages, parameters: configParameters, ...conversationRelayAttributes } = filteredConfig;
+
             const conversationRelay: VoiceResponse.ConversationRelay = connect.conversationRelay({
                 url: `wss://${serverBaseUrl}/conversation-relay`,
-                ...filteredConfig
+                ...conversationRelayAttributes
             } as any);
 
             // Add language configurations if available
