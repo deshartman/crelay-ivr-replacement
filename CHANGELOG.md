@@ -1,5 +1,72 @@
 # Changelog
 
+## Release v4.9.5
+
+### Twilio Edge Location Support
+
+This release adds optional support for Twilio Edge Locations, enabling geographic routing of API calls through specific data centers for improved latency and performance.
+
+#### 🌍 Edge Location Configuration
+
+**Environment Variables:**
+- **Added**: `TWILIO_EDGE` - Optional edge location identifier (e.g., sydney, dublin, ashburn)
+- **Added**: `TWILIO_REGION` - Optional region code (e.g., au1, ie1, us1)
+
+**Configuration Requirements:**
+- Both `TWILIO_EDGE` and `TWILIO_REGION` must be specified together
+- If not configured, system defaults to Twilio's global low-latency routing
+- Edge routing applies to all Twilio API calls (voice, SMS, Sync, etc.)
+
+#### 🔧 Technical Implementation
+
+**TwilioService Enhancement:**
+- Modified constructor to conditionally initialize Twilio client with edge/region parameters
+- Clean if/else pattern handles both configured and default scenarios
+- Only applies edge configuration when both environment variables are set
+- Transforms API endpoint from `api.twilio.com` to `api.{edge}.{region}.twilio.com`
+
+**Available Edge Locations:**
+- Sydney (Australia): `edge: 'sydney'`, `region: 'au1'` → `api.sydney.au1.twilio.com`
+- Dublin (Ireland): `edge: 'dublin'`, `region: 'ie1'` → `api.dublin.ie1.twilio.com`
+- Ashburn (US East): `edge: 'ashburn'`, `region: 'us1'` → `api.ashburn.us1.twilio.com`
+
+#### ✅ Benefits
+
+**Performance Improvements:**
+- Reduced latency for API calls routed through geographically closer data centers
+- Predictable IP address ranges for firewall configuration
+- Optimized routing for region-specific deployments
+
+**Deployment Flexibility:**
+- Optional configuration maintains backward compatibility
+- No code changes required - purely environment variable driven
+- Easy switching between edge locations for different deployment environments
+
+**Usage Examples:**
+```bash
+# Sydney Edge (Australia/Asia-Pacific)
+TWILIO_EDGE=sydney
+TWILIO_REGION=au1
+
+# Dublin Edge (Europe)
+TWILIO_EDGE=dublin
+TWILIO_REGION=ie1
+
+# Ashburn Edge (US East)
+TWILIO_EDGE=ashburn
+TWILIO_REGION=us1
+```
+
+#### 📝 Files Modified
+
+- `server/src/services/TwilioService.ts` - Enhanced constructor with conditional edge configuration
+- `server/.env.example` - Added TWILIO_EDGE and TWILIO_REGION with documentation
+- `README.md` - Added "Twilio Edge Locations (Optional)" section with usage guide
+
+This enhancement is particularly useful for deployments in specific geographic regions (e.g., hosting in Australia) or when predictable IP ranges are required for network security configurations.
+
+---
+
 ## Release v4.9.4
 
 ### TwiML Generation Fix

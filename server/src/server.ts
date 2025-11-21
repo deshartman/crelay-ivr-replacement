@@ -250,7 +250,7 @@ app.get('/', (req: express.Request, res: express.Response) => {
  * 
  * ``` terminal
  * curl  -X POST \
- *  'https://server-des.ngrok.dev/outboundCall' \
+ *  'https://crelay-des.ngrok.dev/outboundCall' \
  *  --header 'Content-Type: application/json' \
  *  --data-raw '{
  *      "properties": {

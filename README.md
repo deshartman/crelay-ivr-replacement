@@ -179,6 +179,37 @@ const conversationRelay = connect.conversationRelay({
 - **Language Support**: Languages array nested in `ConversationRelay.Configuration.languages[]`
 - **Enhanced Properties**: Full Twilio ConversationRelay TwiML properties supported
 
+### Twilio Edge Locations (Optional)
+
+Twilio Edge Locations allow you to route API calls through specific data centers for improved latency and performance. This is particularly useful when your infrastructure or users are located in specific geographic regions.
+
+**Configuration:**
+
+Add these optional environment variables to your `.env` file:
+
+```bash
+TWILIO_EDGE=sydney      # Edge location (e.g., sydney, dublin, ashburn)
+TWILIO_REGION=au1       # Region code (e.g., au1, ie1, us1)
+```
+
+**Available Edge Locations:**
+
+| Location | Edge Value | Region Value | Hostname |
+|----------|------------|--------------|----------|
+| Sydney (Australia) | `sydney` | `au1` | `api.sydney.au1.twilio.com` |
+| Dublin (Ireland) | `dublin` | `ie1` | `api.dublin.ie1.twilio.com` |
+| Ashburn (US East) | `ashburn` | `us1` | `api.ashburn.us1.twilio.com` |
+
+**Important Notes:**
+- Both `TWILIO_EDGE` and `TWILIO_REGION` must be specified together
+- If not configured, the system defaults to Twilio's global low-latency routing
+- Edge routing applies to all Twilio API calls (voice, SMS, Sync, etc.)
+
+**When to Use:**
+- Your infrastructure is deployed in a specific region (e.g., hosting in Australia)
+- You need predictable IP address ranges for firewall configuration
+- You want to optimize latency for users in a particular geographic area
+
 ### WebSocket Connection Flow
 
 1. When a call is received, Twilio initiates a WebSocket connection to `wss://server-yourdomain.ngrok.dev/conversation-relay`
@@ -855,7 +886,7 @@ Take note of the server URL under app = 'XXXXXX' and update your .env file accor
 SERVER_BASE_URL=XXXXXX.fly.dev
 ```
 
-3. Ensure your `fly.toml` file has the correct port configuration:
+3. Ensure your `fly.toml` file has the correct port configuration, aligned with your .env PORT variable:
 ```toml
 [http]
   internal_port = 3001

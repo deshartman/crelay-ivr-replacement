@@ -33,7 +33,25 @@ class TwilioService extends EventEmitter {
         this.accountSid = process.env.ACCOUNT_SID || '';
         this.authToken = process.env.AUTH_TOKEN || '';
         this.fromNumber = process.env.FROM_NUMBER || '';
-        this.twilioClient = twilio(process.env.ACCOUNT_SID || '', process.env.AUTH_TOKEN || '');
+
+        // Initialize Twilio client with optional edge location configuration
+        if (process.env.TWILIO_EDGE && process.env.TWILIO_REGION) {
+            logOut('TwilioService', `Initializing with Edge: ${process.env.TWILIO_EDGE}, Region: ${process.env.TWILIO_REGION}`);
+            this.twilioClient = twilio(
+                process.env.ACCOUNT_SID || '',
+                process.env.AUTH_TOKEN || '',
+                {
+                    edge: process.env.TWILIO_EDGE,
+                    region: process.env.TWILIO_REGION
+                }
+            );
+        } else {
+            logOut('TwilioService', 'Initializing with default Twilio routing (no edge/region specified)');
+            this.twilioClient = twilio(
+                process.env.ACCOUNT_SID || '',
+                process.env.AUTH_TOKEN || ''
+            );
+        }
         // this.twilioClient = twilio(process.env.API_KEY, process.env.API_SECRET, { process.env.ACCOUNT_SID });    // Some issue here with the API key and secret
     }
 
