@@ -14,8 +14,20 @@ interface StatusCallback {
 }
 
 /**
- * Service class for handling Twilio-related operations including making calls, sending SMS and generating TwiML for the Conversation Relay service.
- * 
+ * Service class for handling Twilio-related operations including making calls and generating TwiML for the Conversation Relay service.
+ *
+ * ## Usage Guidelines
+ *
+ * **Use TwilioService when:**
+ * - Making complex API calls that use multiple Twilio services
+ * - Implementation requires non-API level business logic
+ * - NOT creating an LLM tool (tools should be self-contained)
+ *
+ * **Don't use TwilioService (use direct Twilio API) when:**
+ * - Creating LLM tools in src/tools/ directory
+ * - Tools should call Twilio API directly for self-contained execution
+ * - Example: src/tools/send-sms.ts uses direct twilio.messages.create() call
+ *
  * @class
  * @property {string} accountSid - Twilio account SID from environment variables
  * @property {string} authToken - Twilio authentication token from environment variables
@@ -33,7 +45,25 @@ class TwilioService extends EventEmitter {
         this.accountSid = process.env.ACCOUNT_SID || '';
         this.authToken = process.env.AUTH_TOKEN || '';
         this.fromNumber = process.env.FROM_NUMBER || '';
-        this.twilioClient = twilio(process.env.ACCOUNT_SID || '', process.env.AUTH_TOKEN || '');
+
+        // Initialize Twilio client with optional edge location configuration
+        if (process.env.TWILIO_EDGE && process.env.TWILIO_REGION) {
+            logOut('TwilioService', `Initializing with Edge: ${process.env.TWILIO_EDGE}, Region: ${process.env.TWILIO_REGION}`);
+            this.twilioClient = twilio(
+                process.env.ACCOUNT_SID || '',
+                process.env.AUTH_TOKEN || '',
+                {
+                    edge: process.env.TWILIO_EDGE,
+                    region: process.env.TWILIO_REGION
+                }
+            );
+        } else {
+            logOut('TwilioService', 'Initializing with default Twilio routing (no edge/region specified)');
+            this.twilioClient = twilio(
+                process.env.ACCOUNT_SID || '',
+                process.env.AUTH_TOKEN || ''
+            );
+        }
         // this.twilioClient = twilio(process.env.API_KEY, process.env.API_SECRET, { process.env.ACCOUNT_SID });    // Some issue here with the API key and secret
     }
 
@@ -96,29 +126,6 @@ class TwilioService extends EventEmitter {
     }
 
     /**
-     * Sends an SMS message using the configured Twilio number.
-     * 
-     * @param {string} to - The destination phone number in E.164 format
-     * @param {string} message - The message content to send
-     * @returns {Promise<string|null>} The Twilio message SID if successful, null if sending fails
-     */
-    async sendSMS(to: string, message: string): Promise<string | null> {
-        try {
-            logOut('TwilioService', `Sending SMS to: ${to} with message: ${message}`);
-
-            const response = await this.twilioClient.messages.create({
-                body: message,
-                from: this.fromNumber,
-                to: to
-            });
-            return response.sid;
-        } catch (error) {
-            logError('TwilioService', `Error sending SMS: ${error instanceof Error ? error.message : String(error)}`);
-            return null;
-        }
-    }
-
-    /**
      * Generates TwiML to connect a call to the Conversation Relay service.
      * Uses dynamic configuration from CachedAssetsService instead of hardcoded values.
      * Can be used for both inbound and outbound calls.
@@ -145,9 +152,14 @@ class TwilioService extends EventEmitter {
             const response: VoiceResponse = new twilio.twiml.VoiceResponse();
             const connect: VoiceResponse.Connect = response.connect();
             const filteredConfig = this.filterUnsetValues(config);
+
+            // Extract languages and parameters before spreading config
+            // These should only be child elements, not attributes
+            const { languages: configLanguages, parameters: configParameters, ...conversationRelayAttributes } = filteredConfig;
+
             const conversationRelay: VoiceResponse.ConversationRelay = connect.conversationRelay({
                 url: `wss://${serverBaseUrl}/conversation-relay`,
-                ...filteredConfig
+                ...conversationRelayAttributes
             } as any);
 
             // Add language configurations if available

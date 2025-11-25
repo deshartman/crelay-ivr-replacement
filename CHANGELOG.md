@@ -1,5 +1,163 @@
 # Changelog
 
+## Release v4.9.6
+
+### TwilioService Architecture - LLM Tool Self-Containment
+
+This release establishes a clear architectural pattern for when to use TwilioService versus direct Twilio API calls, particularly for LLM tools.
+
+#### 🏗️ Architectural Decision
+
+**LLM Tool Self-Containment Pattern:**
+- LLM tools in `src/tools/` directory should be self-contained and call Twilio APIs directly
+- TwilioService is reserved for complex operations requiring non-API level business logic
+- This pattern prevents unnecessary service layer coupling and keeps tools portable
+
+#### 🔧 Technical Changes
+
+**TwilioService.sendSMS() Removed:**
+- Removed `sendSMS()` method from TwilioService (lines 123-137)
+- Method was a simple wrapper with no added business logic
+- Direct API calls are more appropriate for simple operations
+
+**send-sms Tool Refactored:**
+- Updated `src/tools/send-sms.ts` to call Twilio API directly
+- Changed from: `new TwilioService().sendSMS(to, message)`
+- Changed to: `twilio(accountSid, authToken).messages.create({...})`
+- Tool remains fully functional with improved architectural alignment
+
+**Documentation Updates:**
+- Added usage guidelines to TwilioService class documentation (src/services/TwilioService.ts:16-30)
+- Added "TwilioService Usage Guidelines" section to README Architecture chapter
+- Clear guidance on when to use TwilioService vs. direct API calls
+
+#### ✅ Usage Guidelines
+
+**Use TwilioService when:**
+- Making complex API calls that use multiple Twilio services
+- Implementation requires non-API level business logic
+- Building server endpoints or internal service operations
+- **NOT** creating an LLM tool (tools should be self-contained)
+
+**Use Direct Twilio API when:**
+- Creating LLM tools in `src/tools/` directory
+- Tool operations are simple API calls without business logic
+- Ensures tools remain portable and self-contained
+- Example: `send-sms.ts`, future payment tools, etc.
+
+#### 📝 Files Modified
+
+- `server/src/services/TwilioService.ts` - Removed sendSMS() method, updated class documentation
+- `server/src/tools/send-sms.ts` - Refactored to use direct Twilio API calls
+- `server/package.json` - Version bump to 4.9.6
+- `README.md` - Added TwilioService Usage Guidelines section
+- `CHANGELOG.md` - This entry
+
+This architectural pattern improves code maintainability, reduces unnecessary coupling, and establishes clear guidelines for future tool development.
+
+---
+
+## Release v4.9.5
+
+### Twilio Edge Location Support
+
+This release adds optional support for Twilio Edge Locations, enabling geographic routing of API calls through specific data centers for improved latency and performance.
+
+#### 🌍 Edge Location Configuration
+
+**Environment Variables:**
+- **Added**: `TWILIO_EDGE` - Optional edge location identifier (e.g., sydney, dublin, ashburn)
+- **Added**: `TWILIO_REGION` - Optional region code (e.g., au1, ie1, us1)
+
+**Configuration Requirements:**
+- Both `TWILIO_EDGE` and `TWILIO_REGION` must be specified together
+- If not configured, system defaults to Twilio's global low-latency routing
+- Edge routing applies to all Twilio API calls (voice, SMS, Sync, etc.)
+
+#### 🔧 Technical Implementation
+
+**TwilioService Enhancement:**
+- Modified constructor to conditionally initialize Twilio client with edge/region parameters
+- Clean if/else pattern handles both configured and default scenarios
+- Only applies edge configuration when both environment variables are set
+- Transforms API endpoint from `api.twilio.com` to `api.{edge}.{region}.twilio.com`
+
+**Available Edge Locations:**
+- Sydney (Australia): `edge: 'sydney'`, `region: 'au1'` → `api.sydney.au1.twilio.com`
+- Dublin (Ireland): `edge: 'dublin'`, `region: 'ie1'` → `api.dublin.ie1.twilio.com`
+- Ashburn (US East): `edge: 'ashburn'`, `region: 'us1'` → `api.ashburn.us1.twilio.com`
+
+#### ✅ Benefits
+
+**Performance Improvements:**
+- Reduced latency for API calls routed through geographically closer data centers
+- Predictable IP address ranges for firewall configuration
+- Optimized routing for region-specific deployments
+
+**Deployment Flexibility:**
+- Optional configuration maintains backward compatibility
+- No code changes required - purely environment variable driven
+- Easy switching between edge locations for different deployment environments
+
+**Usage Examples:**
+```bash
+# Sydney Edge (Australia/Asia-Pacific)
+TWILIO_EDGE=sydney
+TWILIO_REGION=au1
+
+# Dublin Edge (Europe)
+TWILIO_EDGE=dublin
+TWILIO_REGION=ie1
+
+# Ashburn Edge (US East)
+TWILIO_EDGE=ashburn
+TWILIO_REGION=us1
+```
+
+#### 📝 Files Modified
+
+- `server/src/services/TwilioService.ts` - Enhanced constructor with conditional edge configuration
+- `server/.env.example` - Added TWILIO_EDGE and TWILIO_REGION with documentation
+- `README.md` - Added "Twilio Edge Locations (Optional)" section with usage guide
+
+This enhancement is particularly useful for deployments in specific geographic regions (e.g., hosting in Australia) or when predictable IP ranges are required for network security configurations.
+
+---
+
+## Release v4.9.4
+
+### TwiML Generation Fix
+
+This release fixes a critical TwiML parsing error that occurred when making calls through Twilio's Conversation Relay.
+
+#### 🐛 Bug Fix
+
+**Invalid TwiML Attributes:**
+- **Fixed**: "Attribute 'parameters' is not allowed to appear in element 'ConversationRelay'" error
+- **Fixed**: "Attribute 'languages' is not allowed to appear in element 'ConversationRelay'" error
+- **Root Cause**: `languages` and `parameters` arrays from serverConfig.json were being spread as XML attributes on `<ConversationRelay>` element
+- **Solution**: Extract and exclude `languages` and `parameters` from config before spreading attributes
+
+**Technical Implementation:**
+- Modified `TwilioService.connectConversationRelay()` to destructure and remove `languages` and `parameters` from filtered config
+- These properties are now only added as child `<Language>` and `<Parameter>` elements (as intended)
+- Prevents `[object Object]` serialization in XML attributes
+
+#### ✅ Benefits
+
+**Correct TwiML Generation:**
+- `<ConversationRelay>` element now only contains valid TwiML attributes
+- Languages configured via child `<Language>` elements only
+- Parameters configured via child `<Parameter>` elements only
+- No more TwiML parsing errors when initiating calls
+
+**Files Modified:**
+- `server/src/services/TwilioService.ts` - Fixed attribute spreading logic (lines 149-151)
+
+This fix ensures calls can be successfully initiated without TwiML parsing errors from Twilio.
+
+---
+
 ## Release v4.9.3
 
 ### Unified Response Service for Voice and Messaging

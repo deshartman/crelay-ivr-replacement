@@ -2,8 +2,8 @@
  * Send SMS function - returns standard responses for conversation context.
  * This is a generic LLM tool that OpenAI processes normally.
  */
+import twilio from 'twilio';
 import { logOut, logError } from '../utils/logger.js';
-import { TwilioService } from '../services/TwilioService.js';
 
 /**
  * Interface for the function arguments
@@ -37,19 +37,20 @@ export default async function (functionArguments: SendSMSFunctionArguments): Pro
 
     log(`Send SMS function called with arguments: ${JSON.stringify(functionArguments)}`);
 
-    const twilioService = new TwilioService();
-
     try {
-        // Send the SMS
-        const result = await twilioService.sendSMS(functionArguments.to, functionArguments.message);
+        // Initialize Twilio client directly
+        const accountSid = process.env.ACCOUNT_SID || '';
+        const authToken = process.env.AUTH_TOKEN || '';
+        const fromNumber = process.env.FROM_NUMBER || '';
 
-        if (!result) {
-            logError_(`Failed to send SMS to ${functionArguments.to}`);
-            return {
-                success: false,
-                message: `Failed to send SMS to ${functionArguments.to}`
-            };
-        }
+        const client = twilio(accountSid, authToken);
+
+        // Send SMS directly via Twilio API
+        const result = await client.messages.create({
+            body: functionArguments.message,
+            from: fromNumber,
+            to: functionArguments.to
+        });
 
         const response: SendSMSResponse = {
             success: true,
@@ -57,7 +58,7 @@ export default async function (functionArguments: SendSMSFunctionArguments): Pro
             recipient: functionArguments.to
         };
 
-        log(`SMS sent successfully: ${JSON.stringify(response)}`);
+        log(`SMS sent successfully: SID=${result.sid}`);
         return response;
 
     } catch (error) {

@@ -17,3 +17,9 @@ server/.dockerignore
 server/Dockerfile
 server/fly.toml
 server/assets/legs
+
+# Ignore all files in server/assets/ except defaults
+server/assets/*
+!server/assets/serverConfig.json
+!server/assets/defaultToolManifest.json
+!server/assets/defaultContext.md
