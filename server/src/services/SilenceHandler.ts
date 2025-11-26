@@ -97,6 +97,7 @@ class SilenceHandler {
     private silenceTimer: NodeJS.Timeout | null;
     private currentMessageIndex: number;
     private messageCallback: MessageCallback | null;
+    private enabled: boolean;
 
     /**
      * Creates a new SilenceHandler instance.
@@ -108,6 +109,7 @@ class SilenceHandler {
         this.silenceTimer = null;
         this.currentMessageIndex = 0;
         this.messageCallback = null;
+        this.enabled = true;
     }
 
     /**
@@ -149,6 +151,8 @@ class SilenceHandler {
         this.messageCallback = onMessage;
 
         this.silenceTimer = setInterval(() => {
+            if (!this.enabled) return;
+
             if (this.lastMessageTime === null) return;
 
             const silenceTime = (Date.now() - this.lastMessageTime) / 1000; // Convert to seconds
@@ -201,6 +205,26 @@ class SilenceHandler {
             this.silenceTimer = null;
             this.messageCallback = null;
         }
+    }
+
+    /**
+     * Enables or disables silence detection monitoring.
+     * Timer continues running but actions are skipped when disabled.
+     *
+     * @param {boolean} enabled - True to enable, false to disable
+     */
+    set(enabled: boolean): void {
+        this.enabled = enabled;
+        logOut('Silence', `Silence detection ${enabled ? 'enabled' : 'disabled'}`);
+    }
+
+    /**
+     * Returns whether silence detection is currently enabled.
+     *
+     * @returns {boolean} True if monitoring is active, false otherwise
+     */
+    isEnabled(): boolean {
+        return this.enabled;
     }
 }
 

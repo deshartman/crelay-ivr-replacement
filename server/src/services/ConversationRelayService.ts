@@ -74,7 +74,7 @@ import { ContentResponse, ResponseService, ToolResultEvent } from '../interfaces
 import type { SilenceDetectionConfig } from './SilenceHandler.js';
 import { ConversationRelayHandler } from '../interfaces/ConversationRelay.js';
 import { ResponseHandler } from '../interfaces/ResponseService.js';
-import type { SessionData, IncomingMessage, OutgoingMessage, ConversationRelay } from '../interfaces/ConversationRelay.js';
+import type { SessionData, IncomingMessage, OutgoingMessage, ConversationRelay, SetSilenceDetectionMessage } from '../interfaces/ConversationRelay.js';
 
 class ConversationRelayService implements ConversationRelay {
     private responseService: ResponseService;
@@ -177,7 +177,16 @@ class ConversationRelayService implements ConversationRelay {
                             // Text messages: Let OpenAI handle normally (no special routing)
                             logOut(`Conversation Relay`, `Text message - letting OpenAI handle response`);
                             break;
-                            
+
+                        case "setSilenceDetection":
+                            // Control silence detection: Enable or disable monitoring
+                            if (this.silenceHandler) {
+                                const silenceMsg = outgoingMsg as SetSilenceDetectionMessage;
+                                this.silenceHandler.set(silenceMsg.enabled);
+                                logOut(`Conversation Relay`, `Silence detection ${silenceMsg.enabled ? 'enabled' : 'disabled'}`);
+                            }
+                            break;
+
                         default:
                             logOut(`Conversation Relay`, `Unknown outgoing message type: ${(outgoingMsg as any).type}`);
                             break;

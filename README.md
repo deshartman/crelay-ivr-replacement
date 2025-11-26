@@ -701,6 +701,92 @@ Silence detection is configured through the `ConversationRelay.SilenceDetection`
 4. **Conversation Reset**: Valid user responses reset message index to beginning
 5. **Call Termination**: After all messages exhausted, call ends with "unresponsive" reason
 
+### Dynamic Silence Detection Control (v4.9.7)
+
+Version 4.9.7 introduces runtime control of silence detection, allowing the LLM to enable or disable silence monitoring during active calls. This is particularly useful for scenarios where the caller may not speak for extended periods.
+
+**Key Features:**
+- **Runtime Control**: Enable/disable silence detection during active calls using the `set-silence-detection` tool
+- **Flag-Based Design**: Timer continues running but checks an enabled flag before taking action
+- **Tool-Driven Architecture**: Uses the existing outgoingMessage pattern for clean service communication
+- **No Service Coupling**: Avoids dependency injection between services
+
+**Common Use Cases:**
+- **Payment Processing**: Disable silence detection while collecting card information via DTMF
+- **Document Lookup**: Disable monitoring when caller is searching for documents or information
+- **IVR Navigation**: Disable during automated phone tree navigation
+- **Form Input**: Disable when caller is entering multiple pieces of information
+
+**How It Works:**
+1. **Continuous Timer**: The silence timer runs continuously throughout the call (checking every 1 second)
+2. **Flag Check**: Before triggering any silence messages, the timer checks if silence detection is enabled
+3. **Early Return**: If disabled (`enabled: false`), the timer returns immediately without taking action
+4. **Tool Control**: The LLM can call `set-silence-detection` tool to dynamically toggle the enabled flag
+5. **Service Communication**: Tool returns an `outgoingMessage` with type `setSilenceDetection` that routes through OpenAIResponseService to ConversationRelayService
+
+**Technical Implementation:**
+```typescript
+// In SilenceHandler.ts - Timer checks enabled flag
+setInterval(() => {
+    if (!this.enabled) return; // Skip if disabled
+    // ... normal silence detection logic
+}, 1000);
+
+// Tool response format
+{
+    success: true,
+    message: "Silence detection enabled",
+    outgoingMessage: {
+        type: 'setSilenceDetection',
+        enabled: true
+    }
+}
+
+// ConversationRelayService routes the message
+case "setSilenceDetection":
+    if (this.silenceHandler) {
+        this.silenceHandler.set(silenceMsg.enabled);
+    }
+    break;
+```
+
+**Using the set-silence-detection Tool:**
+```json
+{
+  "type": "function",
+  "name": "set-silence-detection",
+  "description": "Enables or disables silence detection monitoring during the call. Use this to temporarily disable silence detection during activities where the caller may not speak for extended periods (e.g., entering payment information, looking up documents).",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "enabled": {
+        "type": "boolean",
+        "description": "Set to true to enable silence detection, false to disable it"
+      }
+    },
+    "required": ["enabled"]
+  }
+}
+```
+
+**Example Conversation Flow:**
+```
+AI: "I'll need your credit card number. Please enter it now."
+[AI calls set-silence-detection tool with enabled: false]
+[Caller enters digits via DTMF - no silence warnings triggered]
+AI: "Thank you, I've received your card number. Now please enter the security code."
+[Caller continues entering data without silence interruptions]
+AI: "Perfect, your payment is processing."
+[AI calls set-silence-detection tool with enabled: true]
+[Silence detection resumes normal operation]
+```
+
+**Benefits:**
+- **Better User Experience**: No interruptions during legitimate silence periods
+- **Flexible Control**: LLM decides when silence detection is appropriate
+- **Simple Implementation**: Flag-based design avoids complex timer management
+- **Type-Safe**: Proper TypeScript interfaces throughout the message routing chain
+
 ### Configuration Examples
 
 **Development/Testing Configuration:**

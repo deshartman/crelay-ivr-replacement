@@ -1,5 +1,96 @@
 # Changelog
 
+## Release v4.9.7
+
+### Dynamic Silence Detection Control
+
+This release adds runtime control of silence detection, enabling the LLM to dynamically enable or disable silence monitoring during active calls through a new tool.
+
+#### 🎯 Key Features
+
+**set-silence-detection Tool:**
+- New tool allows LLM to toggle silence detection during active conversations
+- Enables disabling silence monitoring during activities where callers may not speak (e.g., entering payment information, looking up documents)
+- Simple boolean parameter: `enabled` (true to enable, false to disable)
+- Returns success confirmation with current silence detection state
+
+**Flag-Based Implementation:**
+- Silence timer runs continuously (every 1 second) but checks enabled flag before taking action
+- When disabled, timer performs early return without triggering silence messages
+- No complex start/stop logic - simple flag check for reliability
+- Enabled by default to maintain backward compatibility
+
+**Tool-Driven Architecture:**
+- Uses existing outgoingMessage pattern for clean service communication
+- Tool returns `outgoingMessage` with type `setSilenceDetection`
+- Routes through OpenAIResponseService to ConversationRelayService
+- Avoids service coupling by not injecting ConversationRelayService into OpenAIResponseService
+
+#### 🔧 Technical Implementation
+
+**SilenceHandler Enhancement:**
+- Added private `enabled: boolean` property (defaults to `true`)
+- Modified timer to check `if (!this.enabled) return;` before processing
+- Added `set(enabled: boolean)` method to update the flag
+- Added `isEnabled()` getter for state inspection
+- Timer continues running regardless of enabled state
+
+**set-silence-detection Tool (NEW):**
+- File: `src/tools/set-silence-detection.ts`
+- Validates `enabled` parameter is boolean
+- Returns `SetSilenceDetectionResponse` with `outgoingMessage` for routing
+- Provides clear success/failure messaging
+- Integrated into both `defaultToolManifest.json` and `PaymentToolManifest.json`
+
+**ConversationRelayService Update:**
+- Added `SetSilenceDetectionMessage` import from ConversationRelay interfaces
+- Added new case in `toolResult` handler switch statement for type `setSilenceDetection`
+- Calls `this.silenceHandler.set(silenceMsg.enabled)` to update flag
+- Logs state changes for debugging
+
+**Type Safety:**
+- Added `SetSilenceDetectionMessage` interface to `ConversationRelay.d.ts`
+- Updated `OutgoingMessage` union type to include `SetSilenceDetectionMessage`
+- Proper TypeScript interfaces throughout the routing chain
+
+#### ✅ Use Cases
+
+**Payment Processing:**
+- Disable silence detection while collecting card numbers via DTMF
+- Prevents timeout messages during legitimate data entry periods
+- Re-enable after payment information is captured
+
+**Document Lookup:**
+- Disable when caller is searching for documents or account information
+- Allow extended silence without interruption
+- Re-enable when ready to continue conversation
+
+**IVR Navigation:**
+- Disable during automated phone tree navigation
+- Prevent false timeouts during menu listening
+- Re-enable when reaching interactive conversation
+
+**Multi-Step Forms:**
+- Disable when caller is entering multiple pieces of information
+- Maintain silence during form completion
+- Re-enable when form submission is complete
+
+#### 📝 Files Modified
+
+- `server/src/services/SilenceHandler.ts` - Added enabled flag, set() method, early return logic
+- `server/src/tools/set-silence-detection.ts` - NEW tool implementation
+- `server/src/services/ConversationRelayService.ts` - Added setSilenceDetection case in toolResult handler
+- `server/src/interfaces/ConversationRelay.d.ts` - Added SetSilenceDetectionMessage interface and updated OutgoingMessage union
+- `server/assets/defaultToolManifest.json` - Added set-silence-detection tool definition
+- `server/assets/PaymentToolManifest.json` - Added set-silence-detection tool definition
+- `server/package.json` - Version bump to 4.9.7
+- `README.md` - Added "Dynamic Silence Detection Control" documentation section
+- `CHANGELOG.md` - This entry
+
+This enhancement provides flexible silence detection control while maintaining the simple, reliable flag-based design pattern. The LLM can now intelligently disable silence monitoring during activities where extended silence is expected and appropriate.
+
+---
+
 ## Release v4.9.6
 
 ### TwilioService Architecture - LLM Tool Self-Containment

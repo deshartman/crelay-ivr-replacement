@@ -156,9 +156,17 @@ export interface EndSessionMessage {
 }
 
 /**
+ * Set silence detection message - enables or disables silence monitoring
+ */
+export interface SetSilenceDetectionMessage {
+    type: 'setSilenceDetection';
+    enabled: boolean;
+}
+
+/**
  * Union type for all outgoing message types
  */
-export type OutgoingMessage = TextTokensMessage | PlayMediaMessage | SendDigitsMessage | SwitchLanguageMessage | EndSessionMessage;
+export type OutgoingMessage = TextTokensMessage | PlayMediaMessage | SendDigitsMessage | SwitchLanguageMessage | EndSessionMessage | SetSilenceDetectionMessage;
 
 /**
  * ConversationRelayService - manages conversation relay between users and an LLM service
