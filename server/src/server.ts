@@ -11,6 +11,9 @@ import express from 'express';
 import expressWs, { Application as ExpressWSApplication } from 'express-ws';
 import { randomUUID } from 'crypto';
 import { logOut, logError } from './utils/logger.js';
+import { fileURLToPath } from 'url';
+import { existsSync } from 'fs';
+import path from 'path';
 
 // Import the services
 import { ConversationRelayService } from './services/ConversationRelayService.js'
@@ -21,7 +24,9 @@ import { IvrMappingService } from './services/IvrMappingService.js';
 import type { IncomingMessage, OutgoingMessage, SessionData } from './interfaces/ConversationRelay.js';
 import type { IvrMappingRequest } from './interfaces/IvrMappingService.js';
 
-
+// ES module equivalent of __dirname
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Define interface for WebSocket session
 interface WSSession {
@@ -43,7 +48,72 @@ interface RequestData {
     };
 }
 
-dotenv.config();
+/**
+ * Loads environment variables from the appropriate .env file based on NODE_ENV
+ */
+function loadEnvironmentConfig(): void {
+    const nodeEnv = process.env.NODE_ENV;
+    const serverRoot = path.resolve(__dirname, '..');
+
+    let envPath: string;
+    let envName: string;
+
+    // Determine which .env file to load based on NODE_ENV
+    if (nodeEnv === 'dev') {
+        envPath = path.join(serverRoot, '.env.dev');
+        envName = '.env.dev';
+    } else if (nodeEnv === 'prod') {
+        envPath = path.join(serverRoot, '.env.prod');
+        envName = '.env.prod';
+    } else {
+        envPath = path.join(serverRoot, '.env');
+        envName = '.env';
+    }
+
+    // Check if the file exists
+    if (existsSync(envPath)) {
+        const result = dotenv.config({ path: envPath });
+
+        if (result.error) {
+            logError('Server', `Failed to load environment file ${envName}: ${result.error.message}`);
+            throw result.error;
+        }
+
+        logOut('Server', `Environment loaded from: ${envName} (NODE_ENV: ${nodeEnv || 'not set'})`);
+    } else {
+        logError('Server', `Environment file not found: ${envPath}`);
+        throw new Error(`Environment file not found: ${envName}`);
+    }
+}
+
+/**
+ * Validates that required environment variables are present
+ */
+function validateRequiredEnvVars(): void {
+    const required = [
+        'PORT',
+        'SERVER_BASE_URL',
+        'OPENAI_API_KEY',
+        'ACCOUNT_SID',
+        'AUTH_TOKEN',
+        'FROM_NUMBER'
+    ];
+
+    const missing = required.filter(varName => !process.env[varName]);
+
+    if (missing.length > 0) {
+        const errorMsg = `Missing required environment variables: ${missing.join(', ')}`;
+        logError('Server', errorMsg);
+        throw new Error(errorMsg);
+    }
+
+    logOut('Server', 'All required environment variables validated');
+}
+
+// Load environment configuration
+loadEnvironmentConfig();
+validateRequiredEnvVars();
+
 const app = express() as unknown as ExpressWSApplication;
 const PORT = process.env.PORT || 3000;
 let serverBaseUrl = process.env.SERVER_BASE_URL || "localhost"; // Store server URL

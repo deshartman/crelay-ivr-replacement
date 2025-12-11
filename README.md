@@ -2,29 +2,21 @@
 
 This is a reference implementation aimed at introducing the key concepts of Conversation Relay. The key here is to ensure it is a workable environment that can be used to understand the basic concepts of Conversation Relay. It is intentionally simple and only the minimum has been done to ensure the understanding is focussed on the core concepts.
 
-## Release v4.8.0 - Asset Loading Simplification
+## Release v4.9.8 - Environment-Specific Configuration
 
-This release continues the v4.7.0 configuration improvements with significant asset loading simplifications and enhanced serverConfig structure.
+This release implements environment-specific `.env` file loading with NODE_ENV-based selection for clean separation between development and production configurations.
 
-**🔧 Enhanced Configuration:**
-- **Languages Structure**: Languages moved to `ConversationRelay.Configuration.languages[]` for better TwiML integration
-- **Enhanced Properties**: Added Twilio ConversationRelay properties (interruptSensitivity, profanityFilter, transcription/TTS settings)
-- **Type Safety**: Improved TypeScript interfaces using Twilio's official definitions
+**🔧 Key Features:**
+- **Environment Files**: Separate `.env.dev` and `.env.prod` files for different environments
+- **NODE_ENV Selection**: Automatic file loading based on NODE_ENV (dev/prod/fallback)
+- **Validation**: Startup validation ensures all required environment variables are present
+- **Updated Scripts**: Development and production scripts automatically load correct env files
 
-**📦 Simplified Asset Loading:**
-- **File Loading**: Smart filtering preserved - contexts (.md files), manifests (files containing "manifest"/"tool")
-- **Sync Loading**: Automatic asset scanning - all local files sync to Twilio Sync on startup
-- **Mixed Workflow**: Support for both local files and direct Sync management
-
-**📦 Asset Loading Options:**
-- **`"file"`** - Load from local files (recommended for development)
-- **`"sync"`** - Load from Twilio Sync + auto-sync local files (recommended for production)
-- **`"j2"`** - Reserved for future implementation
-
-**✅ Developer Benefits:**
-- Predictable asset loading: local files are always synchronized
-- Support for multiple context/manifest files
-- Eliminated complex conditional loading logic
+**✅ Benefits:**
+- No manual env file swapping between environments
+- Clear separation of dev/prod configurations
+- Reduced risk of using wrong credentials
+- Fast failure with clear error messages for missing variables
 
 See the [CHANGELOG.md](./CHANGELOG.md) for detailed release history.
 
@@ -379,7 +371,42 @@ curl -X POST 'https://your-server/api/sync/usedconfig' \
 
 ## Environment Configuration
 
-Create a `.env` file in the server directory with the following variables:
+### Environment-Specific Configuration (v4.9.8)
+
+The server supports environment-specific `.env` files using NODE_ENV-based selection for clean separation between development and production configurations.
+
+**Environment Files:**
+- `.env.dev` - Development configuration (local development, ngrok URLs, dev API keys)
+- `.env.prod` - Production configuration (production URLs, production credentials)
+- `.env` - Fallback configuration (backward compatibility, CI/CD)
+
+**Usage:**
+```bash
+# Development mode (uses .env.dev)
+pnpm dev
+
+# Production mode (uses .env.prod)
+pnpm build
+pnpm start:prod
+
+# Fallback mode (uses .env)
+pnpm start
+```
+
+**How It Works:**
+- Development script sets `NODE_ENV=dev` → loads `.env.dev`
+- Production script sets `NODE_ENV=prod` → loads `.env.prod`
+- No NODE_ENV → falls back to `.env`
+
+**Benefits:**
+- No manual env file swapping between environments
+- Clear separation of dev/prod configurations
+- Reduced risk of using wrong credentials
+- Validated environment variables on startup
+
+### Environment Variables
+
+Create environment files (`.env.dev`, `.env.prod`, or `.env`) in the server directory with the following variables:
 
 ```bash
 # Server Configuration
@@ -397,6 +424,13 @@ API_KEY=your_twilio_api_key                 # Twilio API Key for enhanced authen
 API_SECRET=your_twilio_api_secret           # Twilio API Secret for enhanced authentication
 FROM_NUMBER=your_twilio_phone_number        # Twilio phone number for calls/SMS
 ```
+
+**Validation:**
+The server validates all required environment variables on startup:
+- `PORT`, `SERVER_BASE_URL`, `OPENAI_API_KEY`
+- `ACCOUNT_SID`, `AUTH_TOKEN`, `FROM_NUMBER`
+
+If any required variables are missing, the server will fail fast with a clear error message listing all missing variables.
 
 ### Required Twilio Services
 
