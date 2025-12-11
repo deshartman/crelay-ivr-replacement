@@ -1,5 +1,145 @@
 # Changelog
 
+## Release v4.9.8
+
+### Environment-Specific Configuration Loading
+
+This release implements environment-specific `.env` file loading with NODE_ENV-based selection, enabling clean separation between development and production configurations.
+
+#### 🎯 Key Features
+
+**NODE_ENV-Based Environment Loading:**
+- Automatic environment file selection based on `NODE_ENV` environment variable
+- `NODE_ENV=dev` → loads `.env.dev` for development configuration
+- `NODE_ENV=prod` → loads `.env.prod` for production configuration
+- No NODE_ENV set → falls back to `.env` for backward compatibility
+- Cross-platform compatibility with modern Node.js
+
+**Enhanced Configuration Validation:**
+- Added `validateRequiredEnvVars()` function to validate presence of critical environment variables
+- Validates: `PORT`, `SERVER_BASE_URL`, `OPENAI_API_KEY`, `ACCOUNT_SID`, `AUTH_TOKEN`, `FROM_NUMBER`
+- Fails fast with clear error messages listing all missing variables
+- Ensures application doesn't start with incomplete configuration
+
+**Updated npm/pnpm Scripts:**
+- `dev` script: `NODE_ENV=dev tsx watch src/server.ts` - Development with `.env.dev`
+- `start:prod` script: `NODE_ENV=prod node dist/server.js` - Production with `.env.prod`
+- `start` script: `node dist/server.js` - Fallback mode with `.env`
+- `build` script: `tsc` - TypeScript compilation (unchanged)
+
+#### 🔧 Technical Implementation
+
+**server.ts Enhancements:**
+- Added ES module `__dirname` equivalent using `fileURLToPath` and `path.dirname`
+- Implemented `loadEnvironmentConfig()` function for NODE_ENV-aware env file loading
+- Added path resolution for `.env.dev`, `.env.prod`, and `.env` files
+- File existence checking with `existsSync()` before loading
+- Error handling for missing files and invalid configurations
+- Comprehensive logging of which environment file was loaded
+
+**Environment File Structure:**
+```
+server/
+├── .env          # Fallback/default environment configuration
+├── .env.dev      # Development-specific configuration (2054 bytes)
+├── .env.prod     # Production-specific configuration (2054 bytes)
+└── .env.example  # Template for new developers
+```
+
+**Configuration Loading Logic:**
+```typescript
+// Determine which .env file to load based on NODE_ENV
+if (nodeEnv === 'dev') {
+    envPath = path.join(serverRoot, '.env.dev');
+    envName = '.env.dev';
+} else if (nodeEnv === 'prod') {
+    envPath = path.join(serverRoot, '.env.prod');
+    envName = '.env.prod';
+} else {
+    envPath = path.join(serverRoot, '.env');
+    envName = '.env';
+}
+```
+
+#### ✅ Use Cases
+
+**Development Workflow:**
+- Local development uses `.env.dev` with ngrok URLs and dev API keys
+- Hot reload with `pnpm dev` automatically loads development configuration
+- Easy testing of different environments by switching NODE_ENV
+- No manual env file swapping required
+
+**Production Deployment:**
+- Production uses `.env.prod` with production URLs and credentials
+- `pnpm start:prod` ensures correct environment is loaded
+- Clear distinction between dev and prod configurations
+- Reduced risk of using wrong credentials in wrong environment
+
+**Multi-Environment Support:**
+- `.env` serves as fallback for quick testing or CI/CD environments
+- Each environment can have completely different configurations
+- Easy A/B testing of configuration changes
+- Support for staging, QA, and other custom environments
+
+#### 📝 Files Modified
+
+- `server/src/server.ts` - Added environment-aware loading logic, validation, and ES module support (lines 13-112)
+- `server/package.json` - Updated scripts with NODE_ENV for dev and prod modes, version bump to 4.9.8
+- `server/.env.dev` - Development environment configuration (already exists)
+- `server/.env.prod` - Production environment configuration (already exists)
+- `README.md` - Added Environment Configuration section with usage documentation
+- `CHANGELOG.md` - This entry
+
+#### 🛡️ Error Handling
+
+**Missing Environment File:**
+```
+[Server] Environment file not found: /path/to/.env.dev
+Error: Environment file not found: .env.dev
+```
+
+**Missing Required Variables:**
+```
+[Server] Missing required environment variables: OPENAI_API_KEY, AUTH_TOKEN
+Error: Missing required environment variables: OPENAI_API_KEY, AUTH_TOKEN
+```
+
+**Successful Loading:**
+```
+[Server] Environment loaded from: .env.dev (NODE_ENV: dev)
+[Server] All required environment variables validated
+```
+
+#### 🚀 Benefits
+
+**Development Experience:**
+- No more manual env file swapping between dev and prod
+- Clear separation of development and production configurations
+- Hot reload works seamlessly with environment-specific configs
+- Easy to test different configurations locally
+
+**Production Safety:**
+- Explicit environment selection prevents accidental misconfigurations
+- Validation ensures all required variables are present before startup
+- Clear logging shows which environment file was loaded
+- Fast failure prevents partial initialization with missing config
+
+**Maintainability:**
+- Single configuration pattern across all environments
+- No hardcoded environment values in code
+- Easy to add new environments (staging, QA, etc.)
+- Standard Node.js environment variable patterns
+
+**Cross-Platform Compatibility:**
+- Works on Unix, Linux, macOS, and Windows PowerShell
+- Modern Node.js (v12+) handles `NODE_ENV=value` syntax natively
+- Optional `cross-env` support for older Windows environments
+- Consistent behavior across all platforms
+
+This enhancement provides a production-ready environment configuration system that follows industry best practices while maintaining backward compatibility through the `.env` fallback mechanism.
+
+---
+
 ## Release v4.9.7
 
 ### Dynamic Silence Detection Control
