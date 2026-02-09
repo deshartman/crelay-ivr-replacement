@@ -248,7 +248,7 @@ class IvrMappingService {
                     this.serverBaseUrl,
                     phoneNumber,
                     this.cachedAssetsService,
-                    `ivr-job-${this.jobId}`
+                    { jobId: this.jobId }
                 );
 
                 logOut('IvrMappingService', `[Job ${this.jobId}] Call initiated: ${callResult.sid}`);
