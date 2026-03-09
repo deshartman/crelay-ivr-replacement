@@ -25,6 +25,7 @@ import { logOut, logError } from '../utils/logger.js';
 import { OpenAIResponseService } from './OpenAIResponseService.js';
 import { TwilioService } from './TwilioService.js';
 import { CachedAssetsService } from './CachedAssetsService.js';
+import { ServerConfig } from '../config/ServerConfig.js';
 import readLegs from '../tools/read_legs.js';
 import type {
     IvrMappingRequest,
@@ -60,12 +61,12 @@ class IvrMappingService {
     private callbackUrl?: string;
     private twilioService: TwilioService;
     private cachedAssetsService: CachedAssetsService;
-    private serverBaseUrl: string;
+    private serverConfig: ServerConfig;
     private callCompletionResolve?: (sessionData: any) => void;
     private callCompletionReject?: (error: any) => void;
     private ivrMappingData: MenuStepData[] = [];
 
-    constructor(jobId: string, twilioService: TwilioService, cachedAssetsService: CachedAssetsService, serverBaseUrl: string) {
+    constructor(jobId: string, twilioService: TwilioService, cachedAssetsService: CachedAssetsService, serverConfig: ServerConfig) {
         this.jobId = jobId;
         this.status = 'pending';
         this.createdAt = new Date();
@@ -74,7 +75,7 @@ class IvrMappingService {
         this.request = { phoneNumber: '' }; // Will be set in startMapping
         this.twilioService = twilioService;
         this.cachedAssetsService = cachedAssetsService;
-        this.serverBaseUrl = serverBaseUrl;
+        this.serverConfig = serverConfig;
 
         logOut('IvrMappingService', `Service initialized for job ${jobId}`);
     }
@@ -189,7 +190,8 @@ class IvrMappingService {
                 activeAssets.context,
                 activeAssets.manifest,
                 activeAssets.loadedTools,
-                activeAssets.listenMode.enabled
+                activeAssets.listenMode.enabled,
+                this.serverConfig
             );
 
             logOut('IvrMappingService', `[Job ${this.jobId}] Created orchestration ResponseService`);
@@ -245,7 +247,7 @@ class IvrMappingService {
                 });
 
                 const callResult = await this.twilioService.makeOutboundCall(
-                    this.serverBaseUrl,
+                    this.serverConfig.serverBaseUrl,
                     phoneNumber,
                     this.cachedAssetsService,
                     { jobId: this.jobId }

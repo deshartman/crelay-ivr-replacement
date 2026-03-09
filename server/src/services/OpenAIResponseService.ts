@@ -60,6 +60,7 @@ import type { ResponseInput, ResponseStreamEvent } from 'openai/resources/respon
 
 import { logOut, logError } from '../utils/logger.js';
 import { ResponseService, ContentResponse, ToolResult, ToolResultEvent, ResponseHandler } from '../interfaces/ResponseService.js';
+import { ServerConfig } from '../config/ServerConfig.js';
 
 dotenv.config();
 
@@ -104,15 +105,19 @@ class OpenAIResponseService implements ResponseService {
      * @param {object} manifest - Pre-loaded tool manifest
      * @param {Record<string, ToolFunction>} loadedTools - Pre-loaded tool functions
      * @param {boolean} listenMode - Listen mode setting
+     * @param {ServerConfig} config - Server configuration
      */
     constructor(
         context: string,
         manifest: object,
         loadedTools: Record<string, ToolFunction>,
-        listenMode: boolean = false
+        listenMode: boolean = false,
+        config: ServerConfig
     ) {
         this.openai = new OpenAI();
-        this.model = process.env.OPENAI_MODEL || "gpt-4o";
+        // Config is required - no fallbacks
+        // ServerConfig.fromEnv() already validated these exist
+        this.model = config.openaiModel;
         this.currentResponseId = null;
         this.instructions = context;
         this.isInterrupted = false;
