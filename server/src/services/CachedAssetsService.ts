@@ -29,19 +29,24 @@ import { promises as fs } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { logOut, logError } from '../utils/logger.js';
-import type { AssetLoader, ServerConfig, AssetLoaderConfig } from '../interfaces/AssetLoader.js';
+import type { AssetLoader, ServerConfig as AssetServerConfig, AssetLoaderConfig } from '../interfaces/AssetLoader.js';
 import type { SilenceDetectionConfig } from './SilenceHandler.js';
 import { SyncAssetLoader } from './SyncAssetLoader.js';
 import { FileAssetLoader } from './FileAssetLoader.js';
 import type { ToolFunction, CachedAssets, ActiveAssets, CacheStats } from '../interfaces/CachedAssetsService.js';
+import { ServerConfig } from '../config/ServerConfig.js';
 
 class CachedAssetsService {
     private cache: CachedAssets | null = null;
     private isInitialized: boolean = false;
 
     private assetLoader: AssetLoader | null = null;
+    private config: ServerConfig;
 
-    constructor() { }
+    constructor(config: ServerConfig) {
+        // Store config for tool factories
+        this.config = config;
+    }
 
     /**
      * Initializes the cache by reading configuration and loading assets from the appropriate loader
@@ -315,8 +320,21 @@ class CachedAssetsService {
             for (const toolName of allToolNames) {
                 try {
                     const toolModule = await import(join(toolsDir, `${toolName}.js`));
-                    loadedTools[toolName] = toolModule.default;
-                    logOut('CachedAssetsService', `Loaded tool: ${toolName}`);
+
+                    // Call factory functions with dependencies
+                    if (toolName === 'change-context') {
+                        // change-context needs CachedAssetsService for context access
+                        loadedTools[toolName] = toolModule.createChangeContextTool(this);
+                        logOut('CachedAssetsService', `Loaded tool (factory): ${toolName}`);
+                    } else if (toolName === 'send-sms') {
+                        // send-sms needs ServerConfig for Twilio credentials
+                        loadedTools[toolName] = toolModule.createSendSMSTool(this.config);
+                        logOut('CachedAssetsService', `Loaded tool (factory): ${toolName}`);
+                    } else {
+                        // Other tools don't need factories (self-contained)
+                        loadedTools[toolName] = toolModule.default;
+                        logOut('CachedAssetsService', `Loaded tool: ${toolName}`);
+                    }
                 } catch (error) {
                     logError('CachedAssetsService', `Failed to load tool ${toolName}: ${error instanceof Error ? error.message : String(error)}`);
                 }
